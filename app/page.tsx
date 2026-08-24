@@ -1,35 +1,40 @@
-export default function Home() {
-  return (
-    <main
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "#f7f3ea",
-        fontFamily: "Arial, sans-serif",
-      }}
-    >
-      <div style={{ textAlign: "center", padding: "40px" }}>
-        <h1
-          style={{
-            fontSize: "42px",
-            color: "#17364d",
-            marginBottom: "12px",
-          }}
-        >
-          The Glaze Shelf
-        </h1>
+"use client";
+import {useEffect,useMemo,useState} from "react";
+import {createClient} from "@/lib/supabase";
+import {Home,Search,Library,Layers,NotebookPen,LogOut} from "lucide-react";
+export default function App(){
+ const sb=useMemo(()=>createClient(),[]);
+ const[session,setSession]=useState<any>(null),[email,setEmail]=useState(""),[password,setPassword]=useState(""),[msg,setMsg]=useState(""),[tab,setTab]=useState("home");
+ const[shelf,setShelf]=useState<any[]>([]),[kind,setKind]=useState("glaze"),[q,setQ]=useState(""),[results,setResults]=useState<any[]>([]),[layers,setLayers]=useState<any[]>([]),[clay,setClay]=useState<any>(null),[cone,setCone]=useState(6),[goal,setGoal]=useState(""),[analysis,setAnalysis]=useState<any>(null),[recipes,setRecipes]=useState<any[]>([]),[studios,setStudios]=useState<any[]>([]),[studio,setStudio]=useState(""),[studioName,setStudioName]=useState(""),[join,setJoin]=useState(""),[studioShelf,setStudioShelf]=useState<any[]>([]),[firings,setFirings]=useState<any[]>([]),[recipe,setRecipe]=useState(""),[movement,setMovement]=useState(""),[rating,setRating]=useState(5),[photo,setPhoto]=useState<File|null>(null),[preview,setPreview]=useState("");
+ useEffect(()=>{sb.auth.getSession().then(({data})=>setSession(data.session));const{data}=sb.auth.onAuthStateChange((_e,s)=>setSession(s));return()=>data.subscription.unsubscribe()},[sb]);
+ useEffect(()=>{if(session){setMsg("");load()}},[session]);
+ async function load(){const[a,b,c,d]=await Promise.all([sb.rpc("get_my_shelf"),sb.rpc("get_my_recipes"),sb.rpc("get_my_studios"),sb.rpc("get_my_firings")]);setShelf(a.data??[]);setRecipes(b.data??[]);setStudios(c.data??[]);setFirings(d.data??[])}
+ async function auth(signup=false){const r=signup?await sb.auth.signUp({email,password}):await sb.auth.signInWithPassword({email,password});if(r.error)setMsg(r.error.message);else if(signup)setMsg("Account created. Check email if required.")}
+ async function search(){const r=kind==="glaze"?await sb.rpc("find_glazes",{p_query:q||null,p_cone:null,p_color_family:null,p_effect:null,p_user_id:session.user.id,p_studio_id:null,p_access:"all",p_limit:40}):await sb.rpc("search_clays",{p_query:q||null,p_cone:null,p_limit:40});if(r.error)setMsg(r.error.message);else setResults(r.data??[])}
+ async function createStudio(){const r=await sb.rpc("create_my_studio",{p_name:studioName,p_location_label:null,p_visibility:"private"});if(r.error)setMsg(r.error.message);else{setStudioName("");load()}}
+ async function joinStudio(){const r=await sb.rpc("join_studio_by_code",{p_code:join});if(r.error)setMsg(r.error.message);else{setJoin("");load()}}
+ async function openStudio(id:string){setStudio(id);setTab("studio");const r=await sb.rpc("get_studio_shelf",{p_studio_id:id});if(r.error)setMsg(r.error.message);else setStudioShelf(r.data??[])}
+ async function invite(id:string){const r=await sb.rpc("regenerate_studio_join_code",{p_studio_id:id});setMsg(r.error?r.error.message:"Invite code: "+r.data)}
+ async function studioAdd(x:any){if(!studio)return setMsg("Open a studio first.");const r=kind==="glaze"?await sb.rpc("set_studio_glaze",{p_studio_id:studio,p_glaze_id:x.glaze_id,p_status:"available",p_notes:null}):await sb.rpc("set_studio_clay",{p_studio_id:studio,p_clay_id:x.clay_id,p_status:"available",p_notes:null});if(r.error)setMsg(r.error.message);else{setMsg("Added to Studio Shelf ✓");await openStudio(studio)}}
+ async function mine(x:any){const r=kind==="glaze"?await sb.rpc("set_my_glaze",{p_glaze_id:x.glaze_id,p_status:"owned",p_quantity:null,p_notes:null}):await sb.rpc("set_my_clay",{p_clay_id:x.clay_id,p_status:"owned",p_notes:null});if(r.error)setMsg(r.error.message);else load()}
+ async function analyze(){const r=await sb.rpc("analyze_glaze_stack_v2",{p_glaze_ids:layers.map(x=>x.glaze_id),p_clay_id:clay?.clay_id??null,p_cone:cone,p_orientation:"vertical",p_texture:"carved",p_goal:goal||null,p_coats:layers.map(x=>x.coats)});if(r.error)setMsg(r.error.message);else setAnalysis(r.data?.[0])}
+ async function saveRecipe(){const r=await sb.rpc("save_recipe_from_stack",{p_name:"Saved Combination",p_clay_id:clay?.clay_id??null,p_cone:cone,p_form:"vertical",p_texture:"carved",p_goal:goal||null,p_glaze_ids:layers.map(x=>x.glaze_id),p_coats:layers.map(x=>x.coats),p_placements:layers.map(()=>"overall")});if(r.error)setMsg(r.error.message);else{setMsg("Recipe saved ✓");load()}}
+ async function fire(){if(!recipe)return setMsg("Choose a recipe.");const r=await sb.rpc("log_firing",{p_recipe_id:recipe,p_fired_at:new Date().toISOString(),p_cone:cone,p_schedule:null,p_orientation:"vertical",p_movement_result:movement||null,p_travel_mm:null,p_color_result:null,p_surface_result:null,p_defects:null,p_rating:rating});if(r.error)return setMsg(r.error.message);if(photo){const path=`${session.user.id}/${r.data}/${Date.now()}-${photo.name.replace(/[^a-zA-Z0-9._-]/g,"_")}`;const up=await sb.storage.from("firing-photos").upload(path,photo);if(up.error)return setMsg(up.error.message);await sb.rpc("attach_firing_photo",{p_firing_id:r.data,p_storage_path:path,p_photo_type:"after"})}setMsg("Firing saved ✓");load()}
+ async function view(id:string){const r=await sb.rpc("get_firing_photos",{p_firing_id:id});if(!r.data?.length)return setMsg("No photo.");const s=await sb.storage.from("firing-photos").createSignedUrl(r.data[0].storage_path,3600);if(s.data)setPreview(s.data.signedUrl)}
+ if(!session)return <main className="shell"><div className="auth"><h1>The Glaze Shelf</h1><p>Know what you have. Discover what works.</p><div className="stack"><input className="input" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)}/><input className="input" type="password" placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)}/><div className="grid"><button className="btn primary" onClick={()=>auth()}>Sign in</button><button className="btn ghost" onClick={()=>auth(true)}>Create account</button></div>{msg&&<div className="notice">{msg}</div>}</div></div></main>;
+ return <main className="shell"><div className="row"><strong>THE GLAZE SHELF</strong><button className="nav" onClick={()=>sb.auth.signOut()}><LogOut size={18}/></button></div>
+ {tab==="home"&&<><section className="hero"><h1>What are you glazing today?</h1><p>Build it. Fire it. Learn from it.</p></section><div className="card"><strong>Studios</strong>{studios.map(s=><div className="item" key={s.studio_id}><div className="row"><strong>{s.name}</strong><span className="tag">{s.role}</span></div><div className="grid"><button className="btn secondary" onClick={()=>openStudio(s.studio_id)}>Open Shelf</button>{s.role==="owner"&&<button className="btn ghost" onClick={()=>invite(s.studio_id)}>Invite</button>}</div></div>)}<div className="stack"><input className="input" placeholder="New studio" value={studioName} onChange={e=>setStudioName(e.target.value)}/><button className="btn secondary" onClick={createStudio}>Create Studio</button><input className="input" placeholder="Invite code" value={join} onChange={e=>setJoin(e.target.value)}/><button className="btn ghost" onClick={joinStudio}>Join Studio</button></div></div>{studio&&<div className="card"><strong>Studio Shelf</strong>{studioShelf.map(x=><div className="item" key={x.item_type+x.item_id}>{x.item_name}<div className="muted">{x.manufacturer} • {x.item_type}</div></div>)}</div>}</>}
 
-        <p
-          style={{
-            fontSize: "18px",
-            color: "#555",
-          }}
-        >
-          Know what you have. Discover what works.
-        </p>
-      </div>
-    </main>
-  );
+ {tab==="studio"&&<><section className="hero"><h1>{studios.find(s=>s.studio_id===studio)?.name||"Studio Shelf"}</h1><p>Everything available in this studio.</p></section>
+ <div className="grid"><button className="btn primary" onClick={()=>{setKind("glaze");setTab("find")}}>+ Add Glaze</button><button className="btn secondary" onClick={()=>{setKind("clay");setTab("find")}}>+ Add Clay</button></div>
+ {studioShelf.length===0&&<div className="card"><strong>This studio shelf is empty.</strong><p className="muted">Add the glazes and clay bodies this studio carries. Once they’re here, the Finder can tell you what combinations are actually available in this studio.</p></div>}
+ {studioShelf.map(x=><div className="item" key={x.item_type+x.item_id}><div className="row"><strong>{x.item_name}</strong><span className="tag">{x.status||"available"}</span></div><div className="muted">{x.manufacturer} • {x.item_type}</div></div>)}
+ <button className="btn ghost" style={{width:"100%",marginTop:12}} onClick={()=>setTab("home")}>← Back to Home</button>
+ </>}
+
+ {tab==="shelf"&&<><section className="hero"><h1>My Shelf</h1></section>{shelf.map(x=><div className="item" key={x.item_type+x.item_id}><strong>{x.item_name}</strong><div className="muted">{x.manufacturer} • {x.item_type}</div></div>)}</>}
+ {tab==="find"&&<><section className="hero"><h1>Find Materials</h1></section><div className="grid"><button className={"btn "+(kind==="glaze"?"primary":"ghost")} onClick={()=>setKind("glaze")}>Glazes</button><button className={"btn "+(kind==="clay"?"primary":"ghost")} onClick={()=>setKind("clay")}>Clay</button></div><div className="row" style={{marginTop:8}}><input className="input" value={q} onChange={e=>setQ(e.target.value)}/><button className="btn primary" onClick={search}><Search size={17}/></button></div>{results.map(x=><div className="item" key={x.glaze_id||x.clay_id}><strong>{x.glaze_name||x.clay_name}</strong><div className="muted">{x.manufacturer}</div><div className="grid"><button className="btn clay" onClick={()=>mine(x)}>+ My Shelf</button><button className="btn secondary" onClick={()=>studioAdd(x)}>+ Studio</button></div><button className="btn ghost" style={{width:"100%",marginTop:7}} onClick={()=>kind==="glaze"?(setLayers([...layers,{...x,coats:2}]),setTab("build")):(setClay(x),setTab("build"))}>{kind==="glaze"?"+ Combination":"Use as Clay"}</button></div>)}</>}
+ {tab==="build"&&<><section className="hero"><h1>Combination Builder</h1></section><div className="card"><strong>Clay:</strong> {clay?.clay_name||"not selected"}</div>{layers.map((x,i)=><div className="item" key={i}>{i+1}. <strong>{x.glaze_name}</strong></div>)}<select className="select" value={cone} onChange={e=>setCone(+e.target.value)}><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select><textarea className="textarea" placeholder="Desired effect" value={goal} onChange={e=>setGoal(e.target.value)} style={{marginTop:8}}/><button className="btn primary" style={{width:"100%",marginTop:8}} onClick={analyze}>Analyze</button>{analysis&&<div className="card result"><strong>{analysis.verdict}</strong><p>{analysis.compatibility}</p><p>{analysis.clay_influence}</p><p>{analysis.rationale}</p><button className="btn secondary" onClick={saveRecipe}>Save Recipe</button></div>}</>}
+ {tab==="journal"&&<><section className="hero"><h1>Firing Journal</h1></section><div className="card stack"><select className="select" value={recipe} onChange={e=>setRecipe(e.target.value)}><option value="">Choose recipe…</option>{recipes.map(r=><option key={r.recipe_id} value={r.recipe_id}>{r.name}</option>)}</select><input className="input" placeholder="Movement result" value={movement} onChange={e=>setMovement(e.target.value)}/><select className="select" value={rating} onChange={e=>setRating(+e.target.value)}><option value="5">★★★★★</option><option value="4">★★★★</option><option value="3">★★★</option><option value="2">★★</option><option value="1">★</option></select><input className="input" type="file" accept="image/*" onChange={e=>setPhoto(e.target.files?.[0]??null)}/><button className="btn primary" onClick={fire}>Save Firing</button></div>{firings.map(f=><div className="item" key={f.firing_id}><div className="row"><strong>{f.recipe_name}</strong><span className="tag">E{f.evidence_tier}</span></div>{f.photo_count>0&&<button className="btn ghost" onClick={()=>view(f.firing_id)}>View Photo</button>}</div>)}{preview&&<img className="photo" src={preview} alt="Firing result"/>}</>}
+ {msg&&<div className="notice">{msg}</div>}<nav className="bottom">{[["home",Home,"Home"],["shelf",Library,"Shelf"],["find",Search,"Find"],["build",Layers,"Build"],["journal",NotebookPen,"Journal"]].map(([t,I,l]:any)=><button key={t} className={"nav "+((tab===t||(tab==="studio"&&t==="shelf"))?"active":"")} onClick={()=>setTab(t)}><I size={19}/><br/>{l}</button>)}</nav></main>
 }
