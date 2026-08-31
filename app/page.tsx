@@ -34,7 +34,106 @@ export default function App(){
 
  {tab==="shelf"&&<><section className="hero"><h1>My Shelf</h1></section>{shelf.map(x=><div className="item" key={x.item_type+x.item_id}><strong>{x.item_name}</strong><div className="muted">{x.manufacturer} • {x.item_type}</div></div>)}</>}
  {tab==="find"&&<><section className="hero"><h1>Find Materials</h1></section><div className="grid"><button className={"btn "+(kind==="glaze"?"primary":"ghost")} onClick={()=>setKind("glaze")}>Glazes</button><button className={"btn "+(kind==="clay"?"primary":"ghost")} onClick={()=>setKind("clay")}>Clay</button></div><div className="row" style={{marginTop:8}}><input className="input" value={q} onChange={e=>setQ(e.target.value)}/><button className="btn primary" onClick={search}><Search size={17}/></button></div>{results.map(x=><div className="item" key={x.glaze_id||x.clay_id}><strong>{x.glaze_name||x.clay_name}</strong><div className="muted">{x.manufacturer}</div><div className="grid"><button className="btn clay" onClick={()=>mine(x)}>+ My Shelf</button><button className="btn secondary" onClick={()=>studioAdd(x)}>+ Studio</button></div><button className="btn ghost" style={{width:"100%",marginTop:7}} onClick={()=>kind==="glaze"?(setLayers([...layers,{...x,coats:2}]),setTab("build")):(setClay(x),setTab("build"))}>{kind==="glaze"?"+ Combination":"Use as Clay"}</button></div>)}</>}
- {tab==="build"&&<><section className="hero"><h1>Combination Builder</h1></section><div className="card"><strong>Clay:</strong> {clay?.clay_name||"not selected"}</div>{layers.map((x,i)=><div className="item" key={i}>{i+1}. <strong>{x.glaze_name}</strong></div>)}<select className="select" value={cone} onChange={e=>setCone(+e.target.value)}><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select><textarea className="textarea" placeholder="Desired effect" value={goal} onChange={e=>setGoal(e.target.value)} style={{marginTop:8}}/><button className="btn primary" style={{width:"100%",marginTop:8}} onClick={analyze}>Analyze</button>{analysis&&<div className="card result"><strong>{analysis.verdict}</strong><p>{analysis.compatibility}</p><p>{analysis.clay_influence}</p><p>{analysis.rationale}</p><button className="btn secondary" onClick={saveRecipe}>Save Recipe</button></div>}</>}
+{tab==="build"&&<>
+  <section className="hero">
+    <h1>Combination Builder</h1>
+  </section>
+
+  <button
+    className="card"
+    style={{width:"100%",textAlign:"left"}}
+    onClick={()=>{
+      setKind("clay");
+      setQ("");
+      setResults([]);
+      setTab("find");
+    }}
+  >
+    <strong>Clay:</strong> {clay?.clay_name||"Select clay"}
+  </button>
+
+  {layers.map((x,i)=>
+    <div className="item" key={i}>
+      <div className="row">
+        <div>
+          <span className="muted">
+            {i===0 ? "Base glaze" : `Layer ${i+1}`}
+          </span>
+          <br/>
+          <strong>{x.glaze_name}</strong>
+          <div className="muted">{x.manufacturer}</div>
+        </div>
+
+        <button
+          className="nav"
+          onClick={()=>setLayers(layers.filter((_,j)=>j!==i))}
+        >
+          Remove
+        </button>
+      </div>
+    </div>
+  )}
+
+  <button
+    className="btn secondary"
+    style={{width:"100%",marginBottom:8}}
+    onClick={()=>{
+      setKind("glaze");
+      setQ("");
+      setResults([]);
+      setTab("find");
+    }}
+  >
+    {layers.length===0 ? "+ Select Base Glaze" : "+ Add Another Glaze"}
+  </button>
+
+  <select
+    className="select"
+    value={cone}
+    onChange={e=>setCone(+e.target.value)}
+  >
+    <option>5</option>
+    <option>6</option>
+    <option>7</option>
+    <option>8</option>
+    <option>9</option>
+    <option>10</option>
+  </select>
+
+  <textarea
+    className="textarea"
+    placeholder="Desired effect"
+    value={goal}
+    onChange={e=>setGoal(e.target.value)}
+    style={{marginTop:8}}
+  />
+
+  <button
+    className="btn primary"
+    style={{width:"100%",marginTop:8}}
+    onClick={()=>{
+      if(layers.length===0){
+        setMsg("Add at least one glaze before analyzing.");
+        return;
+      }
+      analyze();
+    }}
+  >
+    Analyze Combination
+  </button>
+
+  {analysis&&
+    <div className="card result">
+      <strong>{analysis.verdict}</strong>
+      <p>{analysis.compatibility}</p>
+      <p>{analysis.clay_influence}</p>
+      <p>{analysis.rationale}</p>
+      <button className="btn secondary" onClick={saveRecipe}>
+        Save Recipe
+      </button>
+    </div>
+  }
+</>}
  {tab==="journal"&&<><section className="hero"><h1>Firing Journal</h1></section><div className="card stack"><select className="select" value={recipe} onChange={e=>setRecipe(e.target.value)}><option value="">Choose recipe…</option>{recipes.map(r=><option key={r.recipe_id} value={r.recipe_id}>{r.name}</option>)}</select><input className="input" placeholder="Movement result" value={movement} onChange={e=>setMovement(e.target.value)}/><select className="select" value={rating} onChange={e=>setRating(+e.target.value)}><option value="5">★★★★★</option><option value="4">★★★★</option><option value="3">★★★</option><option value="2">★★</option><option value="1">★</option></select><input className="input" type="file" accept="image/*" onChange={e=>setPhoto(e.target.files?.[0]??null)}/><button className="btn primary" onClick={fire}>Save Firing</button></div>{firings.map(f=><div className="item" key={f.firing_id}><div className="row"><strong>{f.recipe_name}</strong><span className="tag">E{f.evidence_tier}</span></div>{f.photo_count>0&&<button className="btn ghost" onClick={()=>view(f.firing_id)}>View Photo</button>}</div>)}{preview&&<img className="photo" src={preview} alt="Firing result"/>}</>}
  {msg&&<div className="notice">{msg}</div>}<nav className="bottom">{[["home",Home,"Home"],["shelf",Library,"Shelf"],["find",Search,"Find"],["build",Layers,"Build"],["journal",NotebookPen,"Journal"]].map(([t,I,l]:any)=><button key={t} className={"nav "+((tab===t||(tab==="studio"&&t==="shelf"))?"active":"")} onClick={()=>setTab(t)}><I size={19}/><br/>{l}</button>)}</nav></main>
 }
