@@ -50,7 +50,7 @@ export default function App(){
  const currentStudio=studios.find(s=>s.studio_id===studio)||studios.find(s=>s.is_default)||studios[0];
  if(!session)return <main className="shell"><div className="auth"><img className="auth-logo" src={tealLogo.src} alt="The Glaze Shelf"/><p>Know what you have. Discover what works.</p><div className="stack"><input className="input" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)}/><input className="input" type="password" placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)}/><div className="grid"><button className="btn primary" onClick={()=>auth()}>Sign in</button><button className="btn ghost" onClick={()=>auth(true)}>Create account</button></div>{msg&&<div className="notice">{msg}</div>}</div></div></main>;
  return <main className="shell"><div className="row app-header"><div className="brand"><span className="brand-icon" style={{backgroundImage:`url(${logoSuite.src})`}} aria-hidden="true"/><strong>THE GLAZE SHELF</strong></div><button className="nav" aria-label="Sign out" onClick={()=>sb.auth.signOut()}><LogOut size={18}/></button></div>
- {tab==="home"&&<><section className="hero home-hero"><img className="home-logo" src={tealLogo.src} alt="The Glaze Shelf"/><h1>What are you glazing today?</h1><p>Build it. Fire it. Learn from it.</p></section>
+ {tab==="home"&&<><section className="hero home-hero"><img className="home-logo" src={tealLogo.src} alt="The Glaze Shelf"/><p>Build it. Fire it. Learn from it.</p></section>
  {currentStudio?<>
   <div className="card current-studio-card">
    <span className="eyebrow">YOUR CURRENT STUDIO</span>
