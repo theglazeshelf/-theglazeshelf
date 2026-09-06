@@ -100,6 +100,13 @@
 @media (max-width:420px){.builder-finder-card{align-items:stretch;flex-direction:column}.filter-grid{grid-template-columns:1fr}.scope-tabs button{font-size:.68rem}}
 
 /* Elevated login and home dashboard */
+.pottery-login-intro{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;background:#fff;pointer-events:none;animation:pottery-intro-away 1.4s ease-in-out forwards}
+.pottery-wheel-ring{position:relative;width:148px;height:148px;border-radius:50%;background:conic-gradient(from 0deg,#04b8d2,#5b39c7,#ef3f72,#ff8a22,#04b8d2);box-shadow:0 18px 45px #32177435;animation:pottery-wheel-spin .9s cubic-bezier(.35,.05,.25,1) forwards}
+.pottery-wheel-cup{position:absolute;inset:11px;display:grid;place-items:center;overflow:hidden;border:8px solid #fff;border-radius:50%;background:#fff}
+.pottery-wheel-cup img{width:auto;max-width:none;height:105px;transform:translateX(9px)}
+@keyframes pottery-wheel-spin{0%{transform:rotate(0deg) scale(.86)}75%{transform:rotate(700deg) scale(1.03)}100%{transform:rotate(720deg) scale(1)}}
+@keyframes pottery-intro-away{0%,64%{opacity:1}100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.pottery-login-intro{animation-duration:.25s}.pottery-wheel-ring{animation:none}}
 .simple-auth-shell{min-height:100svh;margin:0 auto;padding:clamp(34px,8vh,72px) 24px 64px;background:#fff;color:var(--ink);display:flex;justify-content:center}
 .simple-auth-wrap{width:100%;max-width:430px}
 .simple-auth-logo{display:block;width:min(100%,390px);height:auto;margin:0 auto clamp(38px,7vh,64px)}
