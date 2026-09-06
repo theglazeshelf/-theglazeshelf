@@ -143,13 +143,13 @@
 .auth-details{max-width:440px;margin:0 auto;padding:18px 10px 4px;text-align:center}
 .auth-details>p{margin:0 auto;color:var(--ink);font-size:.88rem;font-weight:750;line-height:1.45}
 .home-shell{background:#2e1766;padding-top:0}
-.home-dashboard-hero{position:relative;margin:0 -18px;padding:32px 48px 28px;border:0;border-radius:0 0 26px 26px;text-align:center;background:#fff;box-shadow:0 12px 30px #160b3326}
+.home-dashboard-hero{position:relative;margin:0 -18px;padding:32px 48px 58px;border:0;border-radius:0;text-align:center;background:linear-gradient(180deg,#fff 0%,#fff 68%,#eee9ff 86%,#2e1766 100%);box-shadow:none}
 .home-dashboard-hero:before{display:none}
 .home-color-logo{width:min(360px,100%);margin-bottom:3px}
 .home-signout{position:absolute;top:16px;right:15px;display:grid;place-items:center;width:42px;height:42px;border:0;background:transparent;color:var(--muted)}
-.home-aubergine-content{padding:22px 0 14px}
+.home-aubergine-content{padding:9px 0 14px}
 .home-welcome{padding:0 7px 12px;text-align:center;color:#fff}
-.home-welcome h1{margin:0 0 6px;font-size:1.75rem;line-height:1.08;letter-spacing:-.03em}
+.home-welcome h1{margin:0 0 6px;font-size:clamp(.94rem,4vw,1.16rem);line-height:1.15;letter-spacing:-.015em;white-space:nowrap}
 .home-welcome p{margin:0;color:#ffffffbd;font-weight:700}
 .home-studio-status{padding:8px 7px 3px;color:#fff}
 .home-studio-status>span{display:block;margin-bottom:5px;color:#fff;font-size:.72rem;font-weight:900;letter-spacing:.15em}
@@ -180,4 +180,4 @@
 .compact-studio-status strong{display:block;margin-top:3px;font-size:.92rem}
 .compact-studio-tools{margin-top:7px;padding:12px 14px}
 .compact-studio-tools summary{font-size:.88rem}
-@media (max-width:420px){.simple-auth-shell{padding:30px 20px 54px}.simple-auth-logo{margin-bottom:40px}.header-final-logo{width:164px}.auth-shell{padding-inline:14px}.auth-brand-panel{margin-left:-14px;margin-right:-14px;padding:22px 14px}.auth-form-card{padding:20px 17px 17px}.quick-action-grid{grid-template-columns:1fr}.quick-action{min-height:0}.home-dashboard-hero{padding:29px 44px 25px}.home-final-logo{width:min(330px,100%)}}
+@media (max-width:420px){.simple-auth-shell{padding:30px 20px 54px}.simple-auth-logo{margin-bottom:40px}.header-final-logo{width:164px}.auth-shell{padding-inline:14px}.auth-brand-panel{margin-left:-14px;margin-right:-14px;padding:22px 14px}.auth-form-card{padding:20px 17px 17px}.quick-action-grid{grid-template-columns:1fr}.quick-action{min-height:0}.home-dashboard-hero{padding:29px 44px 55px}.home-final-logo{width:min(330px,100%)}}
