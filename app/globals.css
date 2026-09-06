@@ -120,6 +120,8 @@
 .simple-auth-create{width:100%;min-height:54px;color:#5637bd;border-color:#6041c947}
 .simple-auth-form .auth-divider{margin:2px 0;color:#81847f}
 .header-final-logo{display:block;width:176px;height:auto}
+.logo-free-header{justify-content:flex-end;min-height:34px;padding-bottom:0;border-bottom:0}
+.logo-free-header .nav{display:grid;place-items:center;width:40px;height:40px}
 .home-final-logo{display:block;width:min(370px,100%);height:auto;margin:3px auto 8px}
 .auth-shell{position:relative;isolation:isolate;max-width:560px;min-height:100vh;margin:auto;overflow:hidden;padding:20px 18px 42px;background:linear-gradient(165deg,#fcf7ef 0%,#fcf7ef 34%,#e4f4f1 58%,#eeeafd 79%,#f5dfcf 100%);color:var(--ink)}
 .auth-glow{position:absolute;z-index:-1;border-radius:999px;filter:blur(2px);opacity:.58}
