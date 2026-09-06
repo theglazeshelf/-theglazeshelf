@@ -151,6 +151,12 @@
 .home-welcome{padding:0 7px 12px;text-align:center;color:#fff}
 .home-welcome h1{margin:0 0 6px;font-size:1.75rem;line-height:1.08;letter-spacing:-.03em}
 .home-welcome p{margin:0;color:#ffffffbd;font-weight:700}
+.home-studio-status{padding:8px 7px 3px;color:#fff}
+.home-studio-status>span{display:block;margin-bottom:5px;color:#fff;font-size:.72rem;font-weight:900;letter-spacing:.15em}
+.home-studio-status strong{color:#fff;font-size:1.12rem;line-height:1.2}
+.home-studio-open{display:flex;align-items:center;gap:5px;flex:0 0 auto;border:1px solid #ffffff73;border-radius:999px;padding:8px 11px;background:#ffffff14;color:#fff;font-size:.76rem;font-weight:850}
+.home-studio-add{margin-top:9px;margin-bottom:14px;background:#fff}
+.home-studio-add summary{color:var(--teal);font-weight:850;cursor:pointer}
 .home-shell .card,.home-shell .item{border-color:#ffffff47}
 .home-shell .quick-action{border-color:#ffffff55;box-shadow:0 10px 26px #160b3340}
 .home-shell .dashboard-stats{border-color:#ffffff38;background:#ffffff38;box-shadow:0 10px 26px #160b332e}
