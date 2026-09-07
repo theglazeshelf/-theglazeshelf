@@ -9,7 +9,7 @@ const colorOptions=["Blue","Blue-Green","Green","White / Cream","Black / Charcoa
 export default function App(){
  const sb=useMemo(()=>createClient(),[]);
  const[session,setSession]=useState<any>(null),[email,setEmail]=useState(""),[password,setPassword]=useState(""),[msg,setMsg]=useState(""),[tab,setTab]=useState("home"),[recovery,setRecovery]=useState(false),[newPassword,setNewPassword]=useState(""),[confirmPassword,setConfirmPassword]=useState("");
- const[shelf,setShelf]=useState<any[]>([]),[kind,setKind]=useState("glaze"),[q,setQ]=useState(""),[results,setResults]=useState<any[]>([]),[layers,setLayers]=useState<any[]>([]),[clay,setClay]=useState<any>(null),[cone,setCone]=useState(6),[projectDescription,setProjectDescription]=useState(""),[goal,setGoal]=useState(""),[analysis,setAnalysis]=useState<any>(null),[recipes,setRecipes]=useState<any[]>([]),[recipeName,setRecipeName]=useState(""),[recipeDetail,setRecipeDetail]=useState<any[]>([]),[shelfView,setShelfView]=useState("materials"),[studios,setStudios]=useState<any[]>([]),[studio,setStudio]=useState(""),[studioName,setStudioName]=useState(""),[join,setJoin]=useState(""),[studioShelf,setStudioShelf]=useState<any[]>([]),[firings,setFirings]=useState<any[]>([]),[recipe,setRecipe]=useState(""),[movement,setMovement]=useState(""),[rating,setRating]=useState(5),[photo,setPhoto]=useState<File|null>(null),[preview,setPreview]=useState("");
+ const[shelf,setShelf]=useState<any[]>([]),[kind,setKind]=useState("glaze"),[q,setQ]=useState(""),[results,setResults]=useState<any[]>([]),[layers,setLayers]=useState<any[]>([]),[clay,setClay]=useState<any>(null),[cone,setCone]=useState(6),[projectDescription,setProjectDescription]=useState(""),[orientation,setOrientation]=useState("vertical"),[texture,setTexture]=useState("smooth"),[goal,setGoal]=useState(""),[analysis,setAnalysis]=useState<any>(null),[recipes,setRecipes]=useState<any[]>([]),[recipeName,setRecipeName]=useState(""),[recipeDetail,setRecipeDetail]=useState<any[]>([]),[shelfView,setShelfView]=useState("materials"),[studios,setStudios]=useState<any[]>([]),[studio,setStudio]=useState(""),[studioName,setStudioName]=useState(""),[join,setJoin]=useState(""),[studioShelf,setStudioShelf]=useState<any[]>([]),[firings,setFirings]=useState<any[]>([]),[recipe,setRecipe]=useState(""),[movement,setMovement]=useState(""),[rating,setRating]=useState(5),[photo,setPhoto]=useState<File|null>(null),[preview,setPreview]=useState("");
  const[glazeDetail,setGlazeDetail]=useState<any>(null),[glazeDetailLoading,setGlazeDetailLoading]=useState(false);
  const[effectSearch,setEffectSearch]=useState(""),[colorSearch,setColorSearch]=useState(""),[searchScope,setSearchScope]=useState("all"),[finderCone,setFinderCone]=useState(""),[searchStarted,setSearchStarted]=useState(false),[searching,setSearching]=useState(false);
  const[showLoginSpin,setShowLoginSpin]=useState(false);
@@ -44,13 +44,13 @@ export default function App(){
  function addShelfGlazeToBuild(x:any){const glazeName=x.item_name||x.glaze_name||x.name,manufacturer=typeof x.manufacturer==="string"?x.manufacturer:x.manufacturer?.name;setLayers([...layers,{glaze_id:x.item_id||x.glaze_id||x.id,glaze_name:glazeName,manufacturer,coats:2,surface:"inside & outside",placement:"overall",placementMode:"preset"}]);setAnalysis(null);setGlazeDetail(null);setMsg(`${glazeName} added to your build ✓`);setTab("build")}
  async function openGlazeDetail(x:any){const glazeId=x.item_id||x.glaze_id||x.id,glazeName=x.item_name||x.glaze_name||x.name,manufacturer=typeof x.manufacturer==="string"?x.manufacturer:x.manufacturer?.name;setGlazeDetail({id:glazeId,name:glazeName,manufacturer:{name:manufacturer}});setGlazeDetailLoading(true);const r=await sb.from("glazes").select("id,name,sku,cone_min,cone_max,finish,opacity,movement_score,food_contact_note,notes,manufacturer:manufacturers(name),glaze_line:glaze_lines(name,cone_min,cone_max),intelligence:glaze_intelligence(manufacturer_movement,our_type,behavior_score,color_family,breaks_over_texture,pools,waterfall_potential,layer_reactivity,run_risk,layer_role,cone_text,dinnerware_safe,manufacturer_description,best_pairings,studio_notes,confidence,last_verified,food_safe_chemistry_claim,food_contact_surface_recommended,food_contact_restriction_reason)").eq("id",glazeId).single();setGlazeDetailLoading(false);if(r.error){setGlazeDetail(null);setMsg(r.error.message)}else setGlazeDetail(r.data)}
  function coneRange(min:any,max:any){if(min==null&&max==null)return "Not yet recorded";if(min!=null&&max!=null&&String(min)!==String(max))return `Cone ${min}–${max}`;return `Cone ${min??max}`}
- async function analyze(){const r=await sb.rpc("analyze_glaze_stack_v2",{p_glaze_ids:layers.map(x=>x.glaze_id),p_clay_id:clay?.clay_id??null,p_cone:cone,p_orientation:"vertical",p_texture:"carved",p_goal:goal||null,p_coats:layers.map(x=>x.coats)});if(r.error)setMsg(r.error.message);else setAnalysis(r.data?.[0])}
- async function saveRecipe(){const name=recipeName.trim()||layers.map(x=>x.glaze_name).join(" + ")||"Saved Combination";const r=await sb.rpc("save_recipe_from_stack",{p_name:name,p_clay_id:clay?.clay_id??null,p_cone:cone,p_form:projectDescription.trim()||"vertical",p_texture:"carved",p_goal:goal||null,p_glaze_ids:layers.map(x=>x.glaze_id),p_coats:layers.map(x=>x.coats),p_placements:layers.map(encodeApplication)});if(r.error)setMsg(r.error.message);else{setRecipeName("");setMsg("Recipe saved ✓");await load();setShelfView("recipes");setTab("shelf")}}
+ async function analyze(){const r=await sb.rpc("analyze_glaze_stack_v3",{p_glaze_ids:layers.map(x=>x.glaze_id),p_clay_id:clay?.clay_id??null,p_cone:cone,p_orientation:orientation,p_texture:texture,p_goal:goal||null,p_coats:layers.map(x=>x.coats),p_surfaces:layers.map(x=>x.surface||"inside & outside"),p_placements:layers.map(x=>x.placement||"overall")});if(r.error)setMsg(r.error.message);else{setMsg("");setAnalysis(r.data?.[0])}}
+ async function saveRecipe(){const name=recipeName.trim()||layers.map(x=>x.glaze_name).join(" + ")||"Saved Combination";const r=await sb.rpc("save_recipe_from_stack",{p_name:name,p_clay_id:clay?.clay_id??null,p_cone:cone,p_form:projectDescription.trim()||orientation,p_texture:texture,p_goal:goal||null,p_glaze_ids:layers.map(x=>x.glaze_id),p_coats:layers.map(x=>x.coats),p_placements:layers.map(encodeApplication)});if(r.error)setMsg(r.error.message);else{setRecipeName("");setMsg("Recipe saved ✓");await load();setShelfView("recipes");setTab("shelf")}}
  async function deleteRecipe(id:string,name:string){if(!window.confirm(`Delete “${name}”?\n\nThis permanently removes the recipe and any firing logs connected to it.`))return;const r=await sb.from("recipes").delete().eq("id",id);if(r.error)setMsg(r.error.message);else{if(recipe===id)setRecipe("");setRecipeDetail([]);setMsg("Recipe deleted ✓");await load()}}
  async function openRecipe(id:string){const r=await sb.rpc("get_recipe_detail",{p_recipe_id:id});if(r.error)setMsg(r.error.message);else setRecipeDetail(r.data??[])}
- function editRecipe(){if(!recipeDetail.length)return;const first=recipeDetail[0];setClay(first.clay_id?{clay_id:first.clay_id,clay_name:first.clay_name}:null);setCone(Number(first.cone)||6);setProjectDescription(first.form&&first.form!=="vertical"?first.form:"");setGoal(first.goal||"");setRecipeName(first.recipe_name||"");setLayers(recipeDetail.map(x=>{const application=decodeApplication(x.placement);return{glaze_id:x.glaze_id,glaze_name:x.glaze_name,manufacturer:x.manufacturer,coats:Number(x.coats)||2,...application,placementMode:placementOptions.includes(application.placement)?"preset":"custom"}}));setAnalysis(null);setRecipeDetail([]);setTab("build")}
+ function editRecipe(){if(!recipeDetail.length)return;const first=recipeDetail[0];setClay(first.clay_id?{clay_id:first.clay_id,clay_name:first.clay_name}:null);setCone(Number(first.cone)||6);setOrientation(["vertical","horizontal","sculptural"].includes(first.form)?first.form:"vertical");setProjectDescription(first.form&&!['vertical','horizontal','sculptural'].includes(first.form)?first.form:"");setTexture(first.texture||"smooth");setGoal(first.goal||"");setRecipeName(first.recipe_name||"");setLayers(recipeDetail.map(x=>{const application=decodeApplication(x.placement);return{glaze_id:x.glaze_id,glaze_name:x.glaze_name,manufacturer:x.manufacturer,coats:Number(x.coats)||2,...application,placementMode:placementOptions.includes(application.placement)?"preset":"custom"}}));setAnalysis(null);setRecipeDetail([]);setTab("build")}
  function startFiring(id:string,recipeCone:any){setRecipe(id);if(recipeCone)setCone(Number(recipeCone));setRecipeDetail([]);setTab("journal")}
- async function fire(){if(!recipe)return setMsg("Choose a recipe.");const r=await sb.rpc("log_firing",{p_recipe_id:recipe,p_fired_at:new Date().toISOString(),p_cone:cone,p_schedule:null,p_orientation:"vertical",p_movement_result:movement||null,p_travel_mm:null,p_color_result:null,p_surface_result:null,p_defects:null,p_rating:rating});if(r.error)return setMsg(r.error.message);if(photo){const path=`${session.user.id}/${r.data}/${Date.now()}-${photo.name.replace(/[^a-zA-Z0-9._-]/g,"_")}`;const up=await sb.storage.from("firing-photos").upload(path,photo);if(up.error)return setMsg(up.error.message);await sb.rpc("attach_firing_photo",{p_firing_id:r.data,p_storage_path:path,p_photo_type:"after"})}setMsg("Firing saved ✓");load()}
+ async function fire(){if(!recipe)return setMsg("Choose a recipe.");const r=await sb.rpc("log_firing",{p_recipe_id:recipe,p_fired_at:new Date().toISOString(),p_cone:cone,p_schedule:null,p_orientation:orientation,p_movement_result:movement||null,p_travel_mm:null,p_color_result:null,p_surface_result:null,p_defects:null,p_rating:rating});if(r.error)return setMsg(r.error.message);if(photo){const path=`${session.user.id}/${r.data}/${Date.now()}-${photo.name.replace(/[^a-zA-Z0-9._-]/g,"_")}`;const up=await sb.storage.from("firing-photos").upload(path,photo);if(up.error)return setMsg(up.error.message);await sb.rpc("attach_firing_photo",{p_firing_id:r.data,p_storage_path:path,p_photo_type:"after"})}setMsg("Firing saved ✓");load()}
  async function view(id:string){const r=await sb.rpc("get_firing_photos",{p_firing_id:id});if(!r.data?.length)return setMsg("No photo.");const s=await sb.storage.from("firing-photos").createSignedUrl(r.data[0].storage_path,3600);if(s.data)setPreview(s.data.signedUrl)}
  const combinedMaterials=useMemo(()=>{
   const items=new Map<string,any>();
@@ -115,6 +115,25 @@ export default function App(){
     <strong>Clay:</strong> {clay?.clay_name||"Select clay"}
   </button>
 
+  <div className="builder-context-grid">
+    <label className="field-label">Project Orientation
+      <select className="select" value={orientation} onChange={e=>{setOrientation(e.target.value);setAnalysis(null)}}>
+        <option value="vertical">Vertical — bowl, mug, vase</option>
+        <option value="horizontal">Horizontal — plate, platter, tile</option>
+        <option value="sculptural">Sculptural / mixed angles</option>
+      </select>
+    </label>
+    <label className="field-label">Surface Texture
+      <select className="select" value={texture} onChange={e=>{setTexture(e.target.value);setAnalysis(null)}}>
+        <option value="smooth">Smooth</option>
+        <option value="carved">Carved</option>
+        <option value="chattered">Chattered</option>
+        <option value="textured">Textured</option>
+        <option value="groggy">Groggy / coarse clay</option>
+      </select>
+    </label>
+  </div>
+
   {layers.map((x,i)=>
     <div className="item" key={i}>
       <div className="row">
@@ -178,7 +197,7 @@ export default function App(){
     <select
       className="select"
       value={cone}
-      onChange={e=>setCone(+e.target.value)}
+      onChange={e=>{setCone(+e.target.value);setAnalysis(null)}}
     >
       <option value="5">Cone 5</option>
       <option value="6">Cone 6</option>
@@ -193,7 +212,7 @@ export default function App(){
     className="textarea"
     placeholder="Desired effect"
     value={goal}
-    onChange={e=>setGoal(e.target.value)}
+    onChange={e=>{setGoal(e.target.value);setAnalysis(null)}}
     style={{marginTop:8}}
   />
 
@@ -213,10 +232,20 @@ export default function App(){
 
   {analysis&&
     <div className="card result">
-      <strong>{analysis.verdict}</strong>
-      <p>{analysis.compatibility}</p>
-      <p>{analysis.clay_influence}</p>
-      <p>{analysis.rationale}</p>
+      <div className="analysis-heading">
+        <span className="eyebrow">STACK ANALYSIS</span>
+        <strong>{analysis.verdict}</strong>
+        <span className="analysis-risk">Movement risk {analysis.movement_risk}/10</span>
+      </div>
+      <div className="analysis-grid">
+        <div><span>Effect match</span><strong>{analysis.effect_match}</strong></div>
+        <div><span>Food-contact guidance</span><strong>{analysis.food_contact_guidance}</strong></div>
+        <div><span>Cone compatibility</span><strong>{analysis.compatibility}</strong></div>
+        <div><span>Clay influence</span><strong>{analysis.clay_influence}</strong></div>
+      </div>
+      {analysis.warnings?.length>0&&<div className="analysis-warnings"><strong>Before you fire</strong><ul>{analysis.warnings.map((warning:string,i:number)=><li key={i}>{warning}</li>)}</ul></div>}
+      <p className="analysis-rationale">{analysis.rationale}</p>
+      <p className="analysis-confidence">{analysis.confidence}</p>
       <input className="input" placeholder="Name this recipe" value={recipeName} onChange={e=>setRecipeName(e.target.value)}/>
       <button className="btn secondary" onClick={saveRecipe}>
         Save Recipe
