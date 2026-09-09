@@ -1175,6 +1175,26 @@ export default function App() {
                         value={q}
                         onChange={(e) => setQ(e.target.value)}
                       />
+                      {q && (
+                        <button
+                          className="quick-search-clear"
+                          type="button"
+                          aria-label="Clear glaze search"
+                          onClick={() => {
+                            setQ("");
+                            setResults([]);
+                            setSearchStarted(false);
+                            window.requestAnimationFrame(() =>
+                              document
+                                .getElementById("quick-glaze-query")
+                                ?.focus(),
+                            );
+                          }}
+                        >
+                          <span aria-hidden="true">×</span>
+                          <span>Clear</span>
+                        </button>
+                      )}
                     </div>
                     <button
                       className="btn quick-search-button"
