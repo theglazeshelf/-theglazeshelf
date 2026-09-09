@@ -69,6 +69,22 @@
 .finder-hero{padding-bottom:10px}
 .finder-hero h1{margin-top:3px}
 .finder-hero p{margin:4px 0 0}
+.quick-glaze-search{margin:13px 0 10px;padding:15px;border:1px solid #d8d4cb;border-radius:19px;background:#fff;box-shadow:0 10px 25px #17324d0d}
+.quick-glaze-search>label{display:block;margin-bottom:8px;color:var(--ink);font-size:.84rem;font-weight:850}
+.quick-glaze-search>small{display:block;margin:8px 2px 0;color:var(--muted);font-size:.72rem;font-weight:700}
+.quick-search-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
+.quick-search-input{display:flex;align-items:center;gap:9px;min-width:0;padding:0 13px;border:1.5px solid var(--line);border-radius:13px;background:#fff;color:var(--purple)}
+.quick-search-input:focus-within{border-color:var(--purple);box-shadow:0 0 0 3px #6551cc1a}
+.quick-search-input input{min-width:0;width:100%;border:0;outline:0;background:transparent;padding:13px 0;color:var(--ink);font:inherit;font-weight:650}
+.quick-search-input input::placeholder{color:#9b9b98}
+.quick-search-button{min-width:78px;padding-inline:14px;background:linear-gradient(135deg,var(--purple),#7655dd);color:#fff}
+.finder-advanced{margin:10px 0;border:1px solid var(--line);border-radius:15px;background:#fff;overflow:hidden}
+.finder-advanced>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 15px;color:var(--purple);font-weight:800;cursor:pointer;list-style:none}
+.finder-advanced>summary::-webkit-details-marker{display:none}
+.finder-advanced>summary:after{content:'+';font-size:1.2rem;line-height:1}
+.finder-advanced[open]>summary:after{content:'−'}
+.finder-advanced>summary small{margin-left:auto;color:var(--muted);font-size:.68rem;text-transform:uppercase;letter-spacing:.06em}
+.finder-advanced .finder-form{padding:0 10px 10px}
 .finder-form{margin-top:11px}
 .finder-card{margin:10px 0;padding:15px;border:1px solid var(--line);border-radius:19px;background:linear-gradient(145deg,#fff 0%,#f8fbfa 100%);box-shadow:0 10px 25px #17324d0b}
 .filter-label{display:block;margin:0 0 9px;color:var(--muted);font-size:.68rem;font-weight:850;letter-spacing:.09em}
