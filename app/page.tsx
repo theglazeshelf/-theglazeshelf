@@ -11,6 +11,7 @@ import {
   Plus,
   ArrowRight,
   ShieldCheck,
+  UserRound,
 } from "lucide-react";
 import purpleLogo from "./glaze-shelf-purple-horizontal.png";
 const placementOptions = [
@@ -94,6 +95,15 @@ export default function App() {
     [searchStarted, setSearchStarted] = useState(false),
     [searching, setSearching] = useState(false);
   const [showLoginSpin, setShowLoginSpin] = useState(false);
+  const [profileName, setProfileName] = useState(""),
+    [accountEmail, setAccountEmail] = useState(""),
+    [accountPassword, setAccountPassword] = useState(""),
+    [accountPasswordConfirm, setAccountPasswordConfirm] = useState(""),
+    [profilePhoto, setProfilePhoto] = useState<File | null>(null),
+    [profilePreview, setProfilePreview] = useState(""),
+    [profileDefaultCone, setProfileDefaultCone] = useState("6"),
+    [profileStudio, setProfileStudio] = useState(""),
+    [accountSaving, setAccountSaving] = useState(false);
   function decodeApplication(value: any) {
     const raw = String(value || "overall").toLowerCase();
     if (raw.includes("::")) {
@@ -133,6 +143,19 @@ export default function App() {
   useEffect(() => {
     if (session) {
       setMsg("");
+      setProfileName(
+        session.user.user_metadata?.display_name ||
+          session.user.user_metadata?.full_name ||
+          "",
+      );
+      setAccountEmail(session.user.email || "");
+      setProfilePreview(session.user.user_metadata?.avatar_url || "");
+      setProfileDefaultCone(
+        String(session.user.user_metadata?.default_cone || 6),
+      );
+      setProfileStudio(
+        session.user.user_metadata?.preferred_studio_id || "",
+      );
       load();
     }
   }, [session]);
@@ -157,8 +180,13 @@ export default function App() {
     setRecipes(b.data ?? []);
     setFirings(d.data ?? []);
     const studioRows = c.data ?? [];
+    const savedStudioId =
+      session?.user?.user_metadata?.preferred_studio_id || "";
     const selectedStudioId =
       preferredStudioId ||
+      (studioRows.some((s: any) => s.studio_id === savedStudioId)
+        ? savedStudioId
+        : "") ||
       (studioRows.some((s: any) => s.studio_id === studio)
         ? studio
         : (studioRows.find((s: any) => s.is_default) || studioRows[0])
@@ -166,6 +194,7 @@ export default function App() {
       "";
     setStudios(studioRows);
     setStudio(selectedStudioId);
+    setProfileStudio((current) => current || selectedStudioId);
     let studioError: any = null;
     if (selectedStudioId) {
       const e = await sb.rpc("get_studio_shelf", {
@@ -208,6 +237,86 @@ export default function App() {
       window.history.replaceState({}, document.title, window.location.pathname);
       setMsg("Password updated ✓");
     }
+  }
+  async function saveAccountProfile() {
+    const nextName = profileName.trim();
+    const nextEmail = accountEmail.trim().toLowerCase();
+    if (!nextName) return setMsg("Enter your name first.");
+    if (!nextEmail) return setMsg("Enter a valid email address.");
+    const emailChanged =
+      nextEmail !== String(session.user.email || "").toLowerCase();
+    setAccountSaving(true);
+    let avatarUrl = session.user.user_metadata?.avatar_url || "";
+    if (profilePhoto) {
+      if (profilePhoto.size > 5 * 1024 * 1024) {
+        setAccountSaving(false);
+        return setMsg("Choose a profile picture smaller than 5 MB.");
+      }
+      const path = `${session.user.id}/avatar`;
+      const upload = await sb.storage
+        .from("profile-photos")
+        .upload(path, profilePhoto, {
+          upsert: true,
+          contentType: profilePhoto.type,
+          cacheControl: "3600",
+        });
+      if (upload.error) {
+        setAccountSaving(false);
+        return setMsg(upload.error.message);
+      }
+      const publicPhoto = sb.storage.from("profile-photos").getPublicUrl(path);
+      avatarUrl = `${publicPhoto.data.publicUrl}?v=${Date.now()}`;
+    }
+    const updates: any = {
+      data: {
+        ...session.user.user_metadata,
+        display_name: nextName,
+        avatar_url: avatarUrl,
+        default_cone: Number(profileDefaultCone),
+        preferred_studio_id: profileStudio || null,
+      },
+    };
+    if (emailChanged) updates.email = nextEmail;
+    const r = await sb.auth.updateUser(updates);
+    setAccountSaving(false);
+    if (r.error) return setMsg(r.error.message);
+    setProfilePhoto(null);
+    setProfilePreview(avatarUrl);
+    setCone(Number(profileDefaultCone));
+    if (profileStudio) setStudio(profileStudio);
+    setMsg(
+      emailChanged
+        ? "Name saved. Check your old and new email inboxes to confirm the email change."
+        : "Account details saved ✓",
+    );
+  }
+  async function changeAccountPassword() {
+    if (accountPassword.length < 8)
+      return setMsg("Your new password must be at least 8 characters.");
+    if (accountPassword !== accountPasswordConfirm)
+      return setMsg("The two passwords do not match.");
+    const r = await sb.auth.updateUser({ password: accountPassword });
+    if (r.error) return setMsg(r.error.message);
+    setAccountPassword("");
+    setAccountPasswordConfirm("");
+    setMsg("Password updated ✓");
+  }
+  function chooseProfilePhoto(file?: File) {
+    if (!file) return;
+    const allowed = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/heic",
+      "image/heif",
+    ];
+    if (!allowed.includes(file.type))
+      return setMsg("Choose a JPG, PNG, WebP, or HEIC image.");
+    if (file.size > 5 * 1024 * 1024)
+      return setMsg("Choose a profile picture smaller than 5 MB.");
+    setProfilePhoto(file);
+    setProfilePreview(URL.createObjectURL(file));
+    setMsg("");
   }
   async function search(quick = false) {
     setSearching(true);
@@ -720,6 +829,23 @@ export default function App() {
         {tab !== "home" && (
           <div className="row app-header logo-free-header">
             <button
+              className={"header-account " + (tab === "account" ? "active" : "")}
+              aria-label="Account settings"
+              onClick={() => {
+                setMsg("");
+                setTab("account");
+              }}
+            >
+              {session.user.user_metadata?.avatar_url ? (
+                <img
+                  src={session.user.user_metadata.avatar_url}
+                  alt=""
+                />
+              ) : (
+                <UserRound size={20} />
+              )}
+            </button>
+            <button
               className="nav"
               aria-label="Sign out"
               onClick={() => sb.auth.signOut()}
@@ -736,13 +862,32 @@ export default function App() {
                 src={purpleLogo.src}
                 alt="The Glaze Shelf"
               />
-              <button
-                className="home-signout"
-                aria-label="Sign out"
-                onClick={() => sb.auth.signOut()}
-              >
-                <LogOut size={20} />
-              </button>
+              <div className="home-account-actions">
+                <button
+                  className="home-account"
+                  aria-label="Account settings"
+                  onClick={() => {
+                    setMsg("");
+                    setTab("account");
+                  }}
+                >
+                  {session.user.user_metadata?.avatar_url ? (
+                    <img
+                      src={session.user.user_metadata.avatar_url}
+                      alt=""
+                    />
+                  ) : (
+                    <UserRound size={20} />
+                  )}
+                </button>
+                <button
+                  className="home-signout"
+                  aria-label="Sign out"
+                  onClick={() => sb.auth.signOut()}
+                >
+                  <LogOut size={20} />
+                </button>
+              </div>
             </section>
             <div className="home-aubergine-content">
               <section className="home-welcome">
@@ -902,6 +1047,148 @@ export default function App() {
                 </div>
               )}
             </div>
+          </>
+        )}
+
+        {tab === "account" && (
+          <>
+            <section className="hero account-hero">
+              <span className="eyebrow">YOUR ACCOUNT</span>
+              <h1>Profile &amp; Preferences</h1>
+              <p>Keep your details and glaze defaults up to date.</p>
+            </section>
+            {msg && (
+              <div className="notice account-notice" role="status">
+                {msg}
+              </div>
+            )}
+            <section className="card account-card">
+              <div className="account-photo-row">
+                <div className="account-avatar">
+                  {profilePreview ? (
+                    <img src={profilePreview} alt="Profile preview" />
+                  ) : (
+                    <UserRound size={34} />
+                  )}
+                </div>
+                <div>
+                  <strong>Profile picture</strong>
+                  <label className="account-photo-button" htmlFor="profile-photo">
+                    {profilePreview ? "Change photo" : "Add photo"}
+                  </label>
+                  <input
+                    id="profile-photo"
+                    className="account-photo-input"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+                    onChange={(e) => chooseProfilePhoto(e.target.files?.[0])}
+                  />
+                </div>
+              </div>
+              <div className="stack account-fields">
+                <label className="field-label">
+                  Name
+                  <input
+                    className="input"
+                    autoComplete="name"
+                    placeholder="Your name"
+                    value={profileName}
+                    onChange={(e) => setProfileName(e.target.value)}
+                  />
+                </label>
+                <label className="field-label">
+                  Email
+                  <input
+                    className="input"
+                    type="email"
+                    autoComplete="email"
+                    placeholder="you@example.com"
+                    value={accountEmail}
+                    onChange={(e) => setAccountEmail(e.target.value)}
+                  />
+                </label>
+                {(session.user as any).new_email && (
+                  <p className="account-pending">
+                    Awaiting confirmation for {(session.user as any).new_email}
+                  </p>
+                )}
+              </div>
+            </section>
+            <section className="card account-card">
+              <span className="eyebrow">GLAZE DEFAULTS</span>
+              <div className="account-preference-grid">
+                <label className="field-label">
+                  Default Firing Cone
+                  <select
+                    className="select"
+                    value={profileDefaultCone}
+                    onChange={(e) => setProfileDefaultCone(e.target.value)}
+                  >
+                    {[5, 6, 7, 8, 9, 10].map((value) => (
+                      <option key={value} value={value}>
+                        Cone {value}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="field-label">
+                  Preferred Studio
+                  <select
+                    className="select"
+                    value={profileStudio}
+                    onChange={(e) => setProfileStudio(e.target.value)}
+                  >
+                    <option value="">No preferred studio</option>
+                    {studios.map((item) => (
+                      <option key={item.studio_id} value={item.studio_id}>
+                        {item.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <button
+                className="btn account-save-button"
+                onClick={saveAccountProfile}
+                disabled={accountSaving}
+              >
+                {accountSaving ? "Saving…" : "Save Profile & Preferences"}
+              </button>
+            </section>
+            <section className="card account-card">
+              <span className="eyebrow">SECURITY</span>
+              <h2>Change password</h2>
+              <div className="stack account-fields">
+                <input
+                  className="input"
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder="New password"
+                  value={accountPassword}
+                  onChange={(e) => setAccountPassword(e.target.value)}
+                />
+                <input
+                  className="input"
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder="Confirm new password"
+                  value={accountPasswordConfirm}
+                  onChange={(e) => setAccountPasswordConfirm(e.target.value)}
+                />
+                <button
+                  className="btn secondary"
+                  onClick={changeAccountPassword}
+                >
+                  Update Password
+                </button>
+              </div>
+            </section>
+            <button
+              className="btn account-signout-button"
+              onClick={() => sb.auth.signOut()}
+            >
+              <LogOut size={18} /> Sign Out
+            </button>
           </>
         )}
 
@@ -2087,7 +2374,9 @@ export default function App() {
             </div>
           </div>
         )}
-        {msg && tab !== "find" && <div className="notice">{msg}</div>}
+        {msg && tab !== "find" && tab !== "account" && (
+          <div className="notice">{msg}</div>
+        )}
         <nav className="bottom">
           {[
             ["home", Home, "Home"],
