@@ -1419,9 +1419,12 @@ export default function App() {
                 <p>Quickly find a glaze, or explore by effect.</p>
               )}
             </section>
-            <div className="grid">
+            <div className="grid finder-kind-grid">
               <button
-                className={"btn " + (kind === "glaze" ? "primary" : "ghost")}
+                className={
+                  "btn finder-kind-button " +
+                  (kind === "glaze" ? "primary" : "ghost")
+                }
                 onClick={() => {
                   setKind("glaze");
                   setResults([]);
@@ -1431,7 +1434,10 @@ export default function App() {
                 Glazes
               </button>
               <button
-                className={"btn " + (kind === "clay" ? "primary" : "ghost")}
+                className={
+                  "btn finder-kind-button " +
+                  (kind === "clay" ? "primary" : "ghost")
+                }
                 onClick={() => {
                   setKind("clay");
                   setResults([]);
@@ -1738,8 +1744,7 @@ export default function App() {
             </label>
 
             <button
-              className="card"
-              style={{ width: "100%", textAlign: "left" }}
+              className="card builder-clay-button"
               onClick={() => {
                 setKind("clay");
                 setQ("");
