@@ -1491,14 +1491,25 @@ export default function App() {
                       {searching ? "…" : "Search"}
                     </button>
                   </div>
-                  <small>
-                    Searching{" "}
-                    {searchScope === "mine"
-                      ? "My Shelf"
-                      : searchScope === "studio"
-                        ? "Studio Shelf"
-                        : "All Glazes"}
-                  </small>
+                  <label className="quick-scope-control">
+                    <span>Search in</span>
+                    <select
+                      value={searchScope}
+                      aria-label="Choose which glaze shelf to search"
+                      onChange={(e) => {
+                        setSearchScope(e.target.value);
+                        setResults([]);
+                        setSearchStarted(false);
+                        setMsg("");
+                      }}
+                    >
+                      <option value="all">All Glazes</option>
+                      <option value="mine">My Shelf</option>
+                      <option value="studio" disabled={!studio}>
+                        {studio ? "Studio Shelf" : "Studio Shelf — connect a studio"}
+                      </option>
+                    </select>
+                  </label>
                 </form>
                 <details className="finder-advanced">
                   <summary>
@@ -1512,33 +1523,6 @@ export default function App() {
                       search();
                     }}
                   >
-                    <div className="finder-card">
-                      <span className="filter-label">WHERE TO SEARCH</span>
-                      <div className="scope-tabs">
-                        <button
-                          type="button"
-                          className={searchScope === "all" ? "selected" : ""}
-                          onClick={() => setSearchScope("all")}
-                        >
-                          All Glazes
-                        </button>
-                        <button
-                          type="button"
-                          className={searchScope === "mine" ? "selected" : ""}
-                          onClick={() => setSearchScope("mine")}
-                        >
-                          My Shelf
-                        </button>
-                        <button
-                          type="button"
-                          disabled={!studio}
-                          className={searchScope === "studio" ? "selected" : ""}
-                          onClick={() => setSearchScope("studio")}
-                        >
-                          Studio Shelf
-                        </button>
-                      </div>
-                    </div>
                     <div className="finder-card effect-card">
                       <label className="field-label">
                         Desired Effect
