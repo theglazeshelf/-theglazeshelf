@@ -2393,7 +2393,9 @@ export default function App() {
                   ? "active"
                   : "")
               }
-              onClick={() => setTab(t)}
+              onClick={() =>
+                t === "find" ? openFinder("all") : setTab(t)
+              }
             >
               <I size={19} />
               <br />
