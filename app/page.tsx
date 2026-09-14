@@ -87,7 +87,9 @@ export default function App() {
     [photo, setPhoto] = useState<File | null>(null),
     [preview, setPreview] = useState("");
   const [glazeDetail, setGlazeDetail] = useState<any>(null),
-    [glazeDetailLoading, setGlazeDetailLoading] = useState(false);
+    [glazeDetailLoading, setGlazeDetailLoading] = useState(false),
+    [glazeDetailScroll, setGlazeDetailScroll] = useState(0),
+    [addingShelfKey, setAddingShelfKey] = useState("");
   const [effectSearch, setEffectSearch] = useState(""),
     [colorSearch, setColorSearch] = useState(""),
     [searchScope, setSearchScope] = useState("all"),
@@ -122,6 +124,60 @@ export default function App() {
   }
   function titleCase(value: string) {
     return value.replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+  function resultItemId(x: any) {
+    return x.item_id || x.glaze_id || x.clay_id || x.id;
+  }
+  function resultItemType(x: any) {
+    return x.item_type || (x.clay_id ? "clay" : "glaze");
+  }
+  function resultKey(x: any) {
+    return `${resultItemType(x)}:${resultItemId(x)}`;
+  }
+  function isOnMyShelf(x: any) {
+    const key = resultKey(x);
+    return (
+      shelf.some((item) => `${item.item_type}:${item.item_id}` === key) ||
+      x.access_state === "Mine" ||
+      x.access_state === "Mine + Studio"
+    );
+  }
+  function isOnStudioShelf(x: any) {
+    const key = resultKey(x);
+    return (
+      studioShelf.some((item) => `${item.item_type}:${item.item_id}` === key) ||
+      x.access_state === "Studio" ||
+      x.access_state === "Mine + Studio"
+    );
+  }
+  function accessLabel(x: any) {
+    const mine = isOnMyShelf(x),
+      inStudio = isOnStudioShelf(x);
+    if (mine && inStudio) return "My + Studio";
+    if (mine) return "My Shelf";
+    if (inStudio) return "Studio Shelf";
+    return resultItemType(x) === "clay" ? "All Clay" : "All Glazes";
+  }
+  function updateResultAccess(x: any, destination: "mine" | "studio") {
+    const key = resultKey(x);
+    setResults((current) =>
+      current.map((item) => {
+        if (resultKey(item) !== key) return item;
+        const onMine = destination === "mine" || isOnMyShelf(item);
+        const onStudio = destination === "studio" || isOnStudioShelf(item);
+        return {
+          ...item,
+          access_state:
+            onMine && onStudio
+              ? "Mine + Studio"
+              : onMine
+                ? "Mine"
+                : onStudio
+                  ? "Studio"
+                  : "All",
+        };
+      }),
+    );
   }
   function usesCustomPlacement(layer: any) {
     return (
@@ -354,7 +410,34 @@ export default function App() {
     setFinderCone(fromBuilder ? String(cone) : "");
     setResults([]);
     setSearchStarted(false);
+    setMsg("");
     setTab("find");
+    window.requestAnimationFrame(() => window.scrollTo(0, 0));
+  }
+  function clearFinderSearch() {
+    setQ("");
+    setEffectSearch("");
+    setColorSearch("");
+    setFinderCone("");
+    setResults([]);
+    setSearchStarted(false);
+    setMsg("");
+    window.requestAnimationFrame(() =>
+      document.getElementById("quick-glaze-query")?.focus(),
+    );
+  }
+  function openClayFinder() {
+    setKind("clay");
+    setQ("");
+    setEffectSearch("");
+    setColorSearch("");
+    setFinderCone("");
+    setSearchScope("all");
+    setResults([]);
+    setSearchStarted(false);
+    setMsg("");
+    setTab("find");
+    window.requestAnimationFrame(() => window.scrollTo(0, 0));
   }
   async function createStudio() {
     const r = await sb.rpc("create_my_studio", {
@@ -391,6 +474,10 @@ export default function App() {
   }
   async function studioAdd(x: any) {
     if (!studio) return setMsg("Open a studio first.");
+    if (isOnStudioShelf(x)) return;
+    const saveKey = `${resultKey(x)}:studio`;
+    if (addingShelfKey) return;
+    setAddingShelfKey(saveKey);
     const r =
       kind === "glaze"
         ? await sb.rpc("set_studio_glaze", {
@@ -407,11 +494,22 @@ export default function App() {
           });
     if (r.error) setMsg(r.error.message);
     else {
-      setMsg("Added to Studio Shelf ✓");
-      await openStudio(studio);
+      updateResultAccess(x, "studio");
+      setMsg(
+        `Added ${x.glaze_name || x.clay_name || "item"} to Studio Shelf ✓`,
+      );
+      const refreshed = await sb.rpc("get_studio_shelf", {
+        p_studio_id: studio,
+      });
+      if (!refreshed.error) setStudioShelf(refreshed.data ?? []);
     }
+    setAddingShelfKey("");
   }
   async function mine(x: any) {
+    if (isOnMyShelf(x)) return;
+    const saveKey = `${resultKey(x)}:mine`;
+    if (addingShelfKey) return;
+    setAddingShelfKey(saveKey);
     const r =
       kind === "glaze"
         ? await sb.rpc("set_my_glaze", {
@@ -427,9 +525,11 @@ export default function App() {
           });
     if (r.error) setMsg(r.error.message);
     else {
+      updateResultAccess(x, "mine");
       setMsg(`Added ${x.glaze_name || x.clay_name || "item"} to My Shelf ✓`);
       await load();
     }
+    setAddingShelfKey("");
   }
   function addShelfGlazeToBuild(x: any) {
     const glazeName = x.item_name || x.glaze_name || x.name,
@@ -461,6 +561,7 @@ export default function App() {
         typeof x.manufacturer === "string"
           ? x.manufacturer
           : x.manufacturer?.name;
+    setGlazeDetailScroll(window.scrollY);
     setGlazeDetail({
       id: glazeId,
       name: glazeName,
@@ -479,6 +580,10 @@ export default function App() {
       setGlazeDetail(null);
       setMsg(r.error.message);
     } else setGlazeDetail(r.data);
+  }
+  function closeGlazeDetail() {
+    setGlazeDetail(null);
+    window.requestAnimationFrame(() => window.scrollTo(0, glazeDetailScroll));
   }
   function coneRange(min: any, max: any) {
     if (min == null && max == null) return "Not yet recorded";
@@ -1207,16 +1312,17 @@ export default function App() {
               </button>
               <button
                 className="btn secondary"
-                onClick={() => {
-                  setKind("clay");
-                  setResults([]);
-                  setSearchStarted(false);
-                  setTab("find");
-                }}
+                onClick={openClayFinder}
               >
                 + Add Clay
               </button>
             </div>
+            <button
+              className="btn shelf-effect-button studio-search-button"
+              onClick={() => openFinder("studio")}
+            >
+              <Search size={18} /> Search This Studio Shelf
+            </button>
             {studioShelf.length === 0 && (
               <div className="card">
                 <strong>This studio shelf is empty.</strong>
@@ -1408,7 +1514,11 @@ export default function App() {
         {tab === "find" && (
           <>
             {msg && (
-              <div className="notice finder-notice" role="status">
+              <div
+                className="notice finder-notice"
+                role="status"
+                aria-live="polite"
+              >
                 {msg}
               </div>
             )}
@@ -1468,21 +1578,16 @@ export default function App() {
                         value={q}
                         onChange={(e) => setQ(e.target.value)}
                       />
-                      {q && (
+                      {(q ||
+                        effectSearch ||
+                        colorSearch ||
+                        finderCone ||
+                        searchStarted) && (
                         <button
                           className="quick-search-clear"
                           type="button"
                           aria-label="Clear glaze search"
-                          onClick={() => {
-                            setQ("");
-                            setResults([]);
-                            setSearchStarted(false);
-                            window.requestAnimationFrame(() =>
-                              document
-                                .getElementById("quick-glaze-query")
-                                ?.focus(),
-                            );
-                          }}
+                          onClick={clearFinderSearch}
                         >
                           <span aria-hidden="true">×</span>
                           <span>Clear</span>
@@ -1665,17 +1770,9 @@ export default function App() {
                       {x.sku ? ` • ${x.sku}` : ""}
                     </div>
                   </div>
-                  {x.access_state && (
-                    <span className="location-badge search-access">
-                      {x.access_state === "Mine"
-                        ? "My Shelf"
-                        : x.access_state === "Studio"
-                          ? "Studio Shelf"
-                          : x.access_state === "Mine + Studio"
-                            ? "My + Studio"
-                            : "All Glazes"}
-                    </span>
-                  )}
+                  <span className="location-badge search-access">
+                    {accessLabel(x)}
+                  </span>
                 </div>
                 {kind === "glaze" && (
                   <>
@@ -1701,15 +1798,40 @@ export default function App() {
                   </>
                 )}
                 <div className="grid">
-                  <button className="btn clay" onClick={() => mine(x)}>
-                    + My Shelf
+                  <button
+                    className={
+                      "btn shelf-state-button " +
+                      (isOnMyShelf(x) ? "is-added" : "clay")
+                    }
+                    disabled={
+                      isOnMyShelf(x) ||
+                      addingShelfKey === `${resultKey(x)}:mine`
+                    }
+                    onClick={() => mine(x)}
+                  >
+                    {isOnMyShelf(x)
+                      ? "Added ✓"
+                      : addingShelfKey === `${resultKey(x)}:mine`
+                        ? "Adding…"
+                        : "+ My Shelf"}
                   </button>
                   <button
-                    className="btn secondary"
-                    disabled={!studio}
+                    className={
+                      "btn shelf-state-button " +
+                      (isOnStudioShelf(x) ? "is-added studio-added" : "secondary")
+                    }
+                    disabled={
+                      !studio ||
+                      isOnStudioShelf(x) ||
+                      addingShelfKey === `${resultKey(x)}:studio`
+                    }
                     onClick={() => studioAdd(x)}
                   >
-                    + Studio
+                    {isOnStudioShelf(x)
+                      ? "Added ✓"
+                      : addingShelfKey === `${resultKey(x)}:studio`
+                        ? "Adding…"
+                        : "+ Studio"}
                   </button>
                 </div>
                 <button
@@ -2123,7 +2245,7 @@ export default function App() {
           </>
         )}
         {glazeDetail && (
-          <div className="overlay" onClick={() => setGlazeDetail(null)}>
+          <div className="overlay" onClick={closeGlazeDetail}>
             <div
               className="glaze-detail-sheet"
               role="dialog"
@@ -2143,7 +2265,7 @@ export default function App() {
                 <button
                   className="close"
                   aria-label="Close glaze details"
-                  onClick={() => setGlazeDetail(null)}
+                  onClick={closeGlazeDetail}
                 >
                   ×
                 </button>
@@ -2268,9 +2390,9 @@ export default function App() {
                     </button>
                     <button
                       className="btn ghost"
-                      onClick={() => setGlazeDetail(null)}
+                      onClick={closeGlazeDetail}
                     >
-                      Back to My Shelf
+                      Back to {tab === "find" ? "Finder" : "My Shelf"}
                     </button>
                   </div>
                 </>
@@ -2383,7 +2505,9 @@ export default function App() {
                   : "")
               }
               onClick={() =>
-                t === "find" ? openFinder("all") : setTab(t)
+                t === "find"
+                  ? openFinder("all")
+                  : (setMsg(""), setTab(t))
               }
             >
               <I size={19} />
