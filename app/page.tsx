@@ -97,6 +97,19 @@ export default function App() {
     [searchStarted, setSearchStarted] = useState(false),
     [searching, setSearching] = useState(false);
   const [showLoginSpin, setShowLoginSpin] = useState(false);
+  const [shelfQuery, setShelfQuery] = useState(""),
+    [shelfSort, setShelfSort] = useState("name"),
+    [shelfTypeFilter, setShelfTypeFilter] = useState("all"),
+    [shelfBrandFilter, setShelfBrandFilter] = useState("all"),
+    [shelfConeFilter, setShelfConeFilter] = useState("all"),
+    [shelfStockFilter, setShelfStockFilter] = useState("all"),
+    [inventoryItem, setInventoryItem] = useState<any>(null),
+    [inventoryLocation, setInventoryLocation] = useState<"mine" | "studio">("mine"),
+    [inventoryStatus, setInventoryStatus] = useState("owned"),
+    [inventoryQuantity, setInventoryQuantity] = useState(""),
+    [inventoryContainer, setInventoryContainer] = useState(""),
+    [inventoryNotes, setInventoryNotes] = useState(""),
+    [inventorySaving, setInventorySaving] = useState(false);
   const [profileName, setProfileName] = useState(""),
     [accountEmail, setAccountEmail] = useState(""),
     [accountPassword, setAccountPassword] = useState(""),
@@ -134,20 +147,34 @@ export default function App() {
   function resultKey(x: any) {
     return `${resultItemType(x)}:${resultItemId(x)}`;
   }
-  function isOnMyShelf(x: any) {
+  function personalShelfRow(x: any) {
     const key = resultKey(x);
-    return (
-      shelf.some((item) => `${item.item_type}:${item.item_id}` === key) ||
-      x.access_state === "Mine" ||
-      x.access_state === "Mine + Studio"
+    return shelf.find((item) => `${item.item_type}:${item.item_id}` === key);
+  }
+  function studioShelfRow(x: any) {
+    const key = resultKey(x);
+    return studioShelf.find(
+      (item) => `${item.item_type}:${item.item_id}` === key,
     );
   }
-  function isOnStudioShelf(x: any) {
-    const key = resultKey(x);
+  function isOnMyShelf(x: any) {
+    const item = personalShelfRow(x);
     return (
-      studioShelf.some((item) => `${item.item_type}:${item.item_id}` === key) ||
-      x.access_state === "Studio" ||
-      x.access_state === "Mine + Studio"
+      item?.status === "owned" ||
+      item?.status === "low" ||
+      (!item && (x.access_state === "Mine" || x.access_state === "Mine + Studio"))
+    );
+  }
+  function isWishlisted(x: any) {
+    return personalShelfRow(x)?.status === "wishlist";
+  }
+  function isOnStudioShelf(x: any) {
+    const item = studioShelfRow(x);
+    return (
+      item?.status === "available" ||
+      item?.status === "low" ||
+      (!item &&
+        (x.access_state === "Studio" || x.access_state === "Mine + Studio"))
     );
   }
   function accessLabel(x: any) {
@@ -155,6 +182,7 @@ export default function App() {
       inStudio = isOnStudioShelf(x);
     if (mine && inStudio) return "My + Studio";
     if (mine) return "My Shelf";
+    if (isWishlisted(x)) return "Want to Try";
     if (inStudio) return "Studio Shelf";
     return resultItemType(x) === "clay" ? "All Clay" : "All Glazes";
   }
@@ -227,7 +255,7 @@ export default function App() {
   }, [msg, tab]);
   async function load(preferredStudioId = "") {
     const [a, b, c, d] = await Promise.all([
-      sb.rpc("get_my_shelf"),
+      sb.rpc("get_my_shelf_v2"),
       sb.rpc("get_my_recipes"),
       sb.rpc("get_my_studios"),
       sb.rpc("get_my_firings"),
@@ -253,7 +281,7 @@ export default function App() {
     setProfileStudio((current) => current || selectedStudioId);
     let studioError: any = null;
     if (selectedStudioId) {
-      const e = await sb.rpc("get_studio_shelf", {
+      const e = await sb.rpc("get_studio_shelf_v2", {
         p_studio_id: selectedStudioId,
       });
       studioError = e.error;
@@ -464,7 +492,7 @@ export default function App() {
   async function openStudio(id: string) {
     setStudio(id);
     setTab("studio");
-    const r = await sb.rpc("get_studio_shelf", { p_studio_id: id });
+    const r = await sb.rpc("get_studio_shelf_v2", { p_studio_id: id });
     if (r.error) setMsg(r.error.message);
     else setStudioShelf(r.data ?? []);
   }
@@ -479,16 +507,16 @@ export default function App() {
     if (addingShelfKey) return;
     setAddingShelfKey(saveKey);
     const r =
-      kind === "glaze"
+      resultItemType(x) === "glaze"
         ? await sb.rpc("set_studio_glaze", {
             p_studio_id: studio,
-            p_glaze_id: x.glaze_id,
+            p_glaze_id: x.glaze_id || x.item_id,
             p_status: "available",
             p_notes: null,
           })
         : await sb.rpc("set_studio_clay", {
             p_studio_id: studio,
-            p_clay_id: x.clay_id,
+            p_clay_id: x.clay_id || x.item_id,
             p_status: "available",
             p_notes: null,
           });
@@ -498,7 +526,7 @@ export default function App() {
       setMsg(
         `Added ${x.glaze_name || x.clay_name || "item"} to Studio Shelf ✓`,
       );
-      const refreshed = await sb.rpc("get_studio_shelf", {
+      const refreshed = await sb.rpc("get_studio_shelf_v2", {
         p_studio_id: studio,
       });
       if (!refreshed.error) setStudioShelf(refreshed.data ?? []);
@@ -511,15 +539,15 @@ export default function App() {
     if (addingShelfKey) return;
     setAddingShelfKey(saveKey);
     const r =
-      kind === "glaze"
+      resultItemType(x) === "glaze"
         ? await sb.rpc("set_my_glaze", {
-            p_glaze_id: x.glaze_id,
+            p_glaze_id: x.glaze_id || x.item_id,
             p_status: "owned",
             p_quantity: null,
             p_notes: null,
           })
         : await sb.rpc("set_my_clay", {
-            p_clay_id: x.clay_id,
+            p_clay_id: x.clay_id || x.item_id,
             p_status: "owned",
             p_notes: null,
           });
@@ -530,6 +558,70 @@ export default function App() {
       await load();
     }
     setAddingShelfKey("");
+  }
+  async function wantToTry(x: any) {
+    if (kind !== "glaze" || isOnMyShelf(x) || isWishlisted(x)) return;
+    const saveKey = `${resultKey(x)}:wishlist`;
+    if (addingShelfKey) return;
+    setAddingShelfKey(saveKey);
+    const r = await sb.rpc("set_my_glaze", {
+      p_glaze_id: x.glaze_id || x.item_id,
+      p_status: "wishlist",
+      p_quantity: null,
+      p_notes: null,
+    });
+    if (r.error) setMsg(r.error.message);
+    else {
+      setMsg(`Saved ${x.glaze_name || x.item_name || "glaze"} to Want to Try ✓`);
+      await load();
+    }
+    setAddingShelfKey("");
+  }
+  function openInventoryEditor(x: any, location: "mine" | "studio") {
+    const row = location === "mine" ? personalShelfRow(x) : studioShelfRow(x);
+    setInventoryItem(x);
+    setInventoryLocation(location);
+    setInventoryStatus(
+      row?.status || (location === "mine" ? "owned" : "available"),
+    );
+    setInventoryQuantity(row?.quantity == null ? "" : String(row.quantity));
+    setInventoryContainer(row?.container_size || "");
+    setInventoryNotes(row?.notes || "");
+    setMsg("");
+  }
+  async function saveInventory() {
+    if (!inventoryItem) return;
+    const quantity = inventoryQuantity.trim() === "" ? null : Number(inventoryQuantity);
+    if (quantity != null && (!Number.isFinite(quantity) || quantity < 0)) {
+      return setMsg("Quantity must be zero or more.");
+    }
+    setInventorySaving(true);
+    const itemType = resultItemType(inventoryItem);
+    const itemId = resultItemId(inventoryItem);
+    const r =
+      inventoryLocation === "mine"
+        ? await sb.rpc("update_my_inventory_item", {
+            p_item_type: itemType,
+            p_item_id: itemId,
+            p_status: inventoryStatus,
+            p_quantity: quantity,
+            p_container_size: inventoryContainer.trim() || null,
+            p_notes: inventoryNotes.trim() || null,
+          })
+        : await sb.rpc("update_studio_inventory_item", {
+            p_studio_id: studio,
+            p_item_type: itemType,
+            p_item_id: itemId,
+            p_status: inventoryStatus,
+            p_quantity: quantity,
+            p_container_size: inventoryContainer.trim() || null,
+            p_notes: inventoryNotes.trim() || null,
+          });
+    setInventorySaving(false);
+    if (r.error) return setMsg(r.error.message);
+    setInventoryItem(null);
+    setMsg("Inventory updated ✓");
+    await load();
   }
   function addShelfGlazeToBuild(x: any) {
     const glazeName = x.item_name || x.glaze_name || x.name,
@@ -742,31 +834,119 @@ export default function App() {
   }
   const combinedMaterials = useMemo(() => {
     const items = new Map<string, any>();
-    shelf.forEach((x) =>
+    shelf.forEach((x) => {
+      const onMyShelf = x.status === "owned" || x.status === "low";
       items.set(`${x.item_type}:${x.item_id}`, {
         ...x,
-        onMyShelf: true,
+        onMyShelf,
+        onWantToTry: x.status === "wishlist",
         onStudioShelf: false,
-      }),
-    );
+        personalStatus: x.status,
+        personalQuantity: x.quantity,
+        personalContainerSize: x.container_size,
+        personalNotes: x.notes,
+        personalUpdatedAt: x.updated_at,
+      });
+    });
     studioShelf.forEach((x) => {
       const key = `${x.item_type}:${x.item_id}`,
         existing = items.get(key);
       items.set(key, {
         ...(existing || {}),
-        ...x,
-        onMyShelf: !!existing,
-        onStudioShelf: true,
+        item_type: x.item_type,
+        item_id: x.item_id,
+        item_name: existing?.item_name || x.item_name,
+        manufacturer: existing?.manufacturer || x.manufacturer,
+        sku_or_code: existing?.sku_or_code || x.sku_or_code,
+        cone_min: existing?.cone_min ?? x.cone_min,
+        cone_max: existing?.cone_max ?? x.cone_max,
+        onMyShelf: !!existing?.onMyShelf,
+        onWantToTry: !!existing?.onWantToTry,
+        onStudioShelf: x.status === "available" || x.status === "low",
+        studioStatus: x.status,
+        studioQuantity: x.quantity,
+        studioContainerSize: x.container_size,
+        studioNotes: x.notes,
+        studioUpdatedAt: x.updated_at,
       });
     });
-    return [...items.values()].sort((a, b) =>
-      String(a.item_name).localeCompare(String(b.item_name)),
-    );
+    return [...items.values()];
   }, [shelf, studioShelf]);
+  const ownedMaterials = useMemo(
+    () => combinedMaterials.filter((x) => x.onMyShelf || x.onStudioShelf),
+    [combinedMaterials],
+  );
+  const wantToTryMaterials = useMemo(
+    () => combinedMaterials.filter((x) => x.onWantToTry && !x.onMyShelf),
+    [combinedMaterials],
+  );
+  const shelfBrands = useMemo(
+    () =>
+      [...new Set(ownedMaterials.map((x) => x.manufacturer).filter(Boolean))].sort(
+        (a, b) => String(a).localeCompare(String(b)),
+      ),
+    [ownedMaterials],
+  );
+  const shelfFiltersActive =
+    !!shelfQuery.trim() ||
+    shelfTypeFilter !== "all" ||
+    shelfBrandFilter !== "all" ||
+    shelfConeFilter !== "all" ||
+    shelfStockFilter !== "all";
+  const visibleShelfMaterials = useMemo(() => {
+    const needle = shelfQuery.trim().toLowerCase();
+    const chosenCone = shelfConeFilter === "all" ? null : Number(shelfConeFilter);
+    const filtered = ownedMaterials.filter((x) => {
+      const searchable = `${x.item_name || ""} ${x.manufacturer || ""} ${x.sku_or_code || ""}`.toLowerCase();
+      const matchesCone =
+        chosenCone == null ||
+        ((x.cone_min == null || chosenCone >= Number(x.cone_min)) &&
+          (x.cone_max == null || chosenCone <= Number(x.cone_max)));
+      const low = x.personalStatus === "low" || x.studioStatus === "low";
+      return (
+        (!needle || searchable.includes(needle)) &&
+        (shelfTypeFilter === "all" || x.item_type === shelfTypeFilter) &&
+        (shelfBrandFilter === "all" || x.manufacturer === shelfBrandFilter) &&
+        matchesCone &&
+        (shelfStockFilter === "all" || low)
+      );
+    });
+    return filtered.sort((a, b) => {
+      if (shelfSort === "brand") {
+        return `${a.manufacturer} ${a.item_name}`.localeCompare(
+          `${b.manufacturer} ${b.item_name}`,
+        );
+      }
+      if (shelfSort === "recent") {
+        const aDate = a.personalUpdatedAt || a.studioUpdatedAt || "";
+        const bDate = b.personalUpdatedAt || b.studioUpdatedAt || "";
+        return String(bDate).localeCompare(String(aDate));
+      }
+      return String(a.item_name).localeCompare(String(b.item_name));
+    });
+  }, [
+    ownedMaterials,
+    shelfQuery,
+    shelfSort,
+    shelfTypeFilter,
+    shelfBrandFilter,
+    shelfConeFilter,
+    shelfStockFilter,
+  ]);
+  function clearShelfFilters() {
+    setShelfQuery("");
+    setShelfTypeFilter("all");
+    setShelfBrandFilter("all");
+    setShelfConeFilter("all");
+    setShelfStockFilter("all");
+  }
   const currentStudio =
     studios.find((s) => s.studio_id === studio) ||
     studios.find((s) => s.is_default) ||
     studios[0];
+  const canEditStudio = ["owner", "admin", "editor"].includes(
+    currentStudio?.role || "",
+  );
   const detailIntel = glazeDetail
     ? Array.isArray(glazeDetail.intelligence)
       ? glazeDetail.intelligence[0]
@@ -1337,11 +1517,28 @@ export default function App() {
               <div className="item" key={x.item_type + x.item_id}>
                 <div className="row">
                   <strong>{x.item_name}</strong>
-                  <span className="tag">{x.status || "available"}</span>
+                  <span className={"stock-badge " + (x.status === "low" ? "low" : "")}>
+                    {x.status === "low" ? "Low stock" : x.status || "available"}
+                  </span>
                 </div>
                 <div className="muted">
                   {x.manufacturer} • {x.item_type}
                 </div>
+                {(x.quantity != null || x.container_size || x.notes) && (
+                  <div className="inventory-summary">
+                    {x.quantity != null && <span>{x.quantity} on hand</span>}
+                    {x.container_size && <span>{x.container_size}</span>}
+                    {x.notes && <p>{x.notes}</p>}
+                  </div>
+                )}
+                {canEditStudio && (
+                  <button
+                    className="inventory-edit studio studio-card-edit"
+                    onClick={() => openInventoryEditor(x, "studio")}
+                  >
+                    Edit Inventory
+                  </button>
+                )}
               </div>
             ))}
             <button
@@ -1360,12 +1557,18 @@ export default function App() {
               <span className="eyebrow">YOUR COLLECTION</span>
               <h1>My Shelf</h1>
             </section>
-            <div className="segmented">
+            <div className="segmented shelf-segmented">
               <button
                 className={shelfView === "materials" ? "selected" : ""}
                 onClick={() => setShelfView("materials")}
               >
                 Materials
+              </button>
+              <button
+                className={shelfView === "wishlist" ? "selected" : ""}
+                onClick={() => setShelfView("wishlist")}
+              >
+                Want to Try
               </button>
               <button
                 className={shelfView === "recipes" ? "selected" : ""}
@@ -1393,10 +1596,107 @@ export default function App() {
                     <Search size={18} /> Search My Shelf by Effect
                   </button>
                 </div>
-                <p className="shelf-tip">
-                  Tap a glaze to see safety, firing, and behavior details.
-                </p>
-                {combinedMaterials.length === 0 && (
+                <section className="card shelf-tools">
+                  <label className="field-label" htmlFor="shelf-query">
+                    Search your materials
+                  </label>
+                  <div className="shelf-search-row">
+                    <span className="shelf-search-input">
+                      <Search size={18} />
+                      <input
+                        id="shelf-query"
+                        value={shelfQuery}
+                        placeholder="Glaze, clay, brand, or code"
+                        onChange={(e) => setShelfQuery(e.target.value)}
+                      />
+                      {shelfQuery && (
+                        <button type="button" onClick={() => setShelfQuery("")}>
+                          Clear
+                        </button>
+                      )}
+                    </span>
+                    <select
+                      className="select shelf-sort"
+                      aria-label="Sort shelf"
+                      value={shelfSort}
+                      onChange={(e) => setShelfSort(e.target.value)}
+                    >
+                      <option value="name">A–Z</option>
+                      <option value="brand">Brand</option>
+                      <option value="recent">Recent</option>
+                    </select>
+                  </div>
+                  <details className="shelf-filter-details">
+                    <summary>
+                      Filters {shelfFiltersActive ? "• Active" : ""}
+                    </summary>
+                    <div className="shelf-filter-grid">
+                      <label>
+                        Type
+                        <select
+                          className="select"
+                          value={shelfTypeFilter}
+                          onChange={(e) => setShelfTypeFilter(e.target.value)}
+                        >
+                          <option value="all">All materials</option>
+                          <option value="glaze">Glazes</option>
+                          <option value="clay">Clay</option>
+                        </select>
+                      </label>
+                      <label>
+                        Brand
+                        <select
+                          className="select"
+                          value={shelfBrandFilter}
+                          onChange={(e) => setShelfBrandFilter(e.target.value)}
+                        >
+                          <option value="all">All brands</option>
+                          {shelfBrands.map((brand) => (
+                            <option key={String(brand)} value={String(brand)}>
+                              {String(brand)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label>
+                        Cone
+                        <select
+                          className="select"
+                          value={shelfConeFilter}
+                          onChange={(e) => setShelfConeFilter(e.target.value)}
+                        >
+                          <option value="all">Any cone</option>
+                          {[5, 6, 7, 8, 9, 10].map((value) => (
+                            <option key={value} value={value}>Cone {value}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label>
+                        Stock
+                        <select
+                          className="select"
+                          value={shelfStockFilter}
+                          onChange={(e) => setShelfStockFilter(e.target.value)}
+                        >
+                          <option value="all">Any stock</option>
+                          <option value="low">Low stock only</option>
+                        </select>
+                      </label>
+                    </div>
+                    {shelfFiltersActive && (
+                      <button className="shelf-clear-filters" onClick={clearShelfFilters}>
+                        Clear all filters
+                      </button>
+                    )}
+                  </details>
+                  <div className="shelf-count">
+                    <strong>{visibleShelfMaterials.length}</strong>
+                    <span>
+                      {visibleShelfMaterials.length === 1 ? "material" : "materials"}
+                    </span>
+                  </div>
+                </section>
+                {ownedMaterials.length === 0 && (
                   <div className="card shelf-empty">
                     <strong>Your shelf is ready.</strong>
                     <p className="muted">
@@ -1404,60 +1704,98 @@ export default function App() {
                     </p>
                   </div>
                 )}
-                {combinedMaterials.map((x) =>
-                  x.item_type === "glaze" ? (
-                    <button
-                      type="button"
-                      className="item material-card material-card-button"
-                      key={x.item_type + x.item_id}
-                      onClick={() => openGlazeDetail(x)}
-                    >
-                      <div className="row material-card-heading">
-                        <div>
-                          <strong>{x.item_name}</strong>
-                          <div className="muted">{x.manufacturer} • glaze</div>
-                        </div>
-                        <span className="build-cue">
-                          View Details <ArrowRight size={16} />
-                        </span>
-                      </div>
-                      <div className="shelf-locations">
-                        {x.onMyShelf && (
-                          <span className="location-badge personal">
-                            My Shelf
-                          </span>
-                        )}
-                        {x.onStudioShelf && (
-                          <span className="location-badge studio">
-                            Studio Shelf
-                          </span>
-                        )}
-                      </div>
+                {ownedMaterials.length > 0 && visibleShelfMaterials.length === 0 && (
+                  <div className="card shelf-empty">
+                    <strong>No materials match those filters.</strong>
+                    <button className="shelf-clear-filters" onClick={clearShelfFilters}>
+                      Clear filters
                     </button>
-                  ) : (
-                    <div
-                      className="item material-card clay-material-card"
-                      key={x.item_type + x.item_id}
-                    >
-                      <strong>{x.item_name}</strong>
-                      <div className="muted">
-                        {x.manufacturer} • {x.item_type}
-                      </div>
-                      <div className="shelf-locations">
-                        {x.onMyShelf && (
-                          <span className="location-badge personal">
-                            My Shelf
-                          </span>
-                        )}
-                        {x.onStudioShelf && (
-                          <span className="location-badge studio">
-                            Studio Shelf
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ),
+                  </div>
                 )}
+                {visibleShelfMaterials.map((x) => (
+                  <div className="item material-card" key={x.item_type + x.item_id}>
+                    <div className="row material-card-heading">
+                      <div>
+                        <strong>{x.item_name}</strong>
+                        <div className="muted">
+                          {x.manufacturer} • {x.item_type}
+                          {x.sku_or_code ? ` • ${x.sku_or_code}` : ""}
+                        </div>
+                      </div>
+                      {x.personalStatus === "low" || x.studioStatus === "low" ? (
+                        <span className="stock-badge low">Low stock</span>
+                      ) : null}
+                    </div>
+                    <div className="shelf-locations">
+                      {x.onMyShelf && <span className="location-badge personal">My Shelf</span>}
+                      {x.onStudioShelf && <span className="location-badge studio">Studio Shelf</span>}
+                    </div>
+                    {(x.personalQuantity != null || x.personalContainerSize || x.personalNotes) && (
+                      <div className="inventory-summary">
+                        {x.personalQuantity != null && <span>{x.personalQuantity} on hand</span>}
+                        {x.personalContainerSize && <span>{x.personalContainerSize}</span>}
+                        {x.personalNotes && <p>{x.personalNotes}</p>}
+                      </div>
+                    )}
+                    <div className="material-actions">
+                      {x.item_type === "glaze" && (
+                        <button className="detail-link" onClick={() => openGlazeDetail(x)}>
+                          View Details <ArrowRight size={16} />
+                        </button>
+                      )}
+                      {x.onMyShelf && (
+                        <button className="inventory-edit" onClick={() => openInventoryEditor(x, "mine")}>
+                          Edit My Inventory
+                        </button>
+                      )}
+                      {x.onStudioShelf && canEditStudio && (
+                        <button className="inventory-edit studio" onClick={() => openInventoryEditor(x, "studio")}>
+                          Edit Studio
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+            {shelfView === "wishlist" && (
+              <>
+                <div className="wishlist-intro">
+                  <strong>{wantToTryMaterials.length} saved</strong>
+                  <p>Glazes you want to remember before adding them to your shelf.</p>
+                </div>
+                {wantToTryMaterials.length === 0 && (
+                  <div className="card shelf-empty">
+                    <strong>Your Want to Try list is open.</strong>
+                    <p className="muted">Save interesting glazes from Finder and they’ll appear here.</p>
+                    <button className="btn secondary" onClick={() => openFinder("all")}>
+                      Find Glazes
+                    </button>
+                  </div>
+                )}
+                {wantToTryMaterials.map((x) => (
+                  <div className="item material-card wishlist-card" key={x.item_id}>
+                    <div className="row material-card-heading">
+                      <div>
+                        <strong>{x.item_name}</strong>
+                        <div className="muted">{x.manufacturer} • {x.sku_or_code || "glaze"}</div>
+                      </div>
+                      <span className="location-badge wishlist">Want to Try</span>
+                    </div>
+                    {x.personalNotes && <p className="inventory-note">{x.personalNotes}</p>}
+                    <div className="material-actions">
+                      <button className="detail-link" onClick={() => openGlazeDetail(x)}>
+                        View Details <ArrowRight size={16} />
+                      </button>
+                      <button className="inventory-edit" onClick={() => mine(x)}>
+                        Move to My Shelf
+                      </button>
+                      <button className="inventory-edit" onClick={() => openInventoryEditor(x, "mine")}>
+                        Edit
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </>
             )}
             {shelfView === "recipes" && (
@@ -1797,7 +2135,7 @@ export default function App() {
                     </button>
                   </>
                 )}
-                <div className="grid">
+                <div className={kind === "glaze" ? "finder-shelf-actions" : "grid"}>
                   <button
                     className={
                       "btn shelf-state-button " +
@@ -1815,6 +2153,28 @@ export default function App() {
                         ? "Adding…"
                         : "+ My Shelf"}
                   </button>
+                  {kind === "glaze" && (
+                    <button
+                      className={
+                        "btn shelf-state-button " +
+                        (isWishlisted(x) ? "is-wishlisted" : "secondary")
+                      }
+                      disabled={
+                        isOnMyShelf(x) ||
+                        isWishlisted(x) ||
+                        addingShelfKey === `${resultKey(x)}:wishlist`
+                      }
+                      onClick={() => wantToTry(x)}
+                    >
+                      {isOnMyShelf(x)
+                        ? "On My Shelf"
+                        : isWishlisted(x)
+                          ? "Saved ✓"
+                          : addingShelfKey === `${resultKey(x)}:wishlist`
+                            ? "Saving…"
+                            : "Want to Try"}
+                    </button>
+                  )}
                   <button
                     className={
                       "btn shelf-state-button " +
@@ -2243,6 +2603,92 @@ export default function App() {
               <img className="photo" src={preview} alt="Firing result" />
             )}
           </>
+        )}
+        {inventoryItem && (
+          <div className="overlay inventory-overlay" onClick={() => setInventoryItem(null)}>
+            <section
+              className="inventory-sheet"
+              role="dialog"
+              aria-modal="true"
+              aria-label={`Edit ${inventoryItem.item_name || inventoryItem.glaze_name || "inventory"}`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="row inventory-heading">
+                <div>
+                  <span className="eyebrow">
+                    {inventoryLocation === "mine" ? "MY INVENTORY" : "STUDIO INVENTORY"}
+                  </span>
+                  <h2>{inventoryItem.item_name || inventoryItem.glaze_name || inventoryItem.clay_name}</h2>
+                  <p>{inventoryItem.manufacturer}</p>
+                </div>
+                <button className="close" aria-label="Close inventory editor" onClick={() => setInventoryItem(null)}>
+                  ×
+                </button>
+              </div>
+              {msg && <div className="notice inventory-notice" role="status">{msg}</div>}
+              <div className="inventory-form">
+                <label className="field-label">
+                  Status
+                  <select className="select" value={inventoryStatus} onChange={(e) => setInventoryStatus(e.target.value)}>
+                    {inventoryLocation === "mine" ? (
+                      <>
+                        <option value="owned">On My Shelf</option>
+                        <option value="low">Low Stock</option>
+                        {resultItemType(inventoryItem) === "glaze" && <option value="wishlist">Want to Try</option>}
+                        <option value="archived">Archived</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="available">Available</option>
+                        <option value="low">Low Stock</option>
+                        <option value="unavailable">Unavailable</option>
+                        <option value="archived">Archived</option>
+                      </>
+                    )}
+                  </select>
+                </label>
+                <div className="inventory-form-grid">
+                  <label className="field-label">
+                    Quantity
+                    <input
+                      className="input"
+                      type="number"
+                      min="0"
+                      step="0.25"
+                      inputMode="decimal"
+                      placeholder="e.g., 1.5"
+                      value={inventoryQuantity}
+                      onChange={(e) => setInventoryQuantity(e.target.value)}
+                    />
+                  </label>
+                  <label className="field-label">
+                    Container Size
+                    <input
+                      className="input"
+                      placeholder="e.g., Pint or 16 oz"
+                      value={inventoryContainer}
+                      onChange={(e) => setInventoryContainer(e.target.value)}
+                    />
+                  </label>
+                </div>
+                <label className="field-label">
+                  Notes
+                  <textarea
+                    className="textarea"
+                    placeholder="Where it is stored, reorder note, test result…"
+                    value={inventoryNotes}
+                    onChange={(e) => setInventoryNotes(e.target.value)}
+                  />
+                </label>
+              </div>
+              <div className="grid inventory-sheet-actions">
+                <button className="btn secondary" onClick={() => setInventoryItem(null)}>Cancel</button>
+                <button className="btn primary" disabled={inventorySaving} onClick={saveInventory}>
+                  {inventorySaving ? "Saving…" : "Save Inventory"}
+                </button>
+              </div>
+            </section>
+          </div>
         )}
         {glazeDetail && (
           <div className="overlay" onClick={closeGlazeDetail}>
