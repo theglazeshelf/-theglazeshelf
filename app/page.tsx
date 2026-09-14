@@ -12,6 +12,8 @@ import {
   ArrowRight,
   ShieldCheck,
   UserRound,
+  Compass,
+  Share2,
 } from "lucide-react";
 import purpleLogo from "./glaze-shelf-purple-horizontal.png";
 const placementOptions = [
@@ -100,7 +102,16 @@ export default function App() {
     [firingDetail, setFiringDetail] = useState<any>(null),
     [firingDetailPhotos, setFiringDetailPhotos] = useState<any[]>([]),
     [firingDetailLoading, setFiringDetailLoading] = useState(false),
-    [firingSaving, setFiringSaving] = useState(false);
+    [firingSaving, setFiringSaving] = useState(false),
+    [shareNewFiring, setShareNewFiring] = useState(false),
+    [sharingFiringId, setSharingFiringId] = useState("");
+  const [exploreResults, setExploreResults] = useState<any[]>([]),
+    [exploreLoading, setExploreLoading] = useState(false),
+    [exploreStarted, setExploreStarted] = useState(false),
+    [exploreQuery, setExploreQuery] = useState(""),
+    [exploreEffect, setExploreEffect] = useState(""),
+    [exploreCone, setExploreCone] = useState(""),
+    [exploreRating, setExploreRating] = useState("");
   const [glazeDetail, setGlazeDetail] = useState<any>(null),
     [glazeDetailLoading, setGlazeDetailLoading] = useState(false),
     [glazeDetailScroll, setGlazeDetailScroll] = useState(0),
@@ -273,7 +284,7 @@ export default function App() {
       sb.rpc("get_my_shelf_v2"),
       sb.rpc("get_my_recipes_v2"),
       sb.rpc("get_my_studios"),
-      sb.rpc("get_my_firings_v2"),
+      sb.rpc("get_my_firings_v3"),
     ]);
     setShelf(a.data ?? []);
     setRecipes(b.data ?? []);
@@ -831,6 +842,7 @@ export default function App() {
     setRating(5);
     setBeforePhoto(null);
     setPhoto(null);
+    setShareNewFiring(false);
     setTab("journal");
     window.requestAnimationFrame(() => window.scrollTo(0, 0));
   }
@@ -858,6 +870,9 @@ export default function App() {
   async function fire() {
     if (!recipe) return setMsg("Choose a recipe.");
     if (!firingDate) return setMsg("Choose the firing date.");
+    if (shareNewFiring && !beforePhoto && !photo) {
+      return setMsg("Add at least one photo before sharing this firing in Explore.");
+    }
     const travel = travelDistance.trim() === "" ? null : Number(travelDistance);
     if (travel != null && (!Number.isFinite(travel) || travel < 0)) {
       return setMsg("Movement distance must be zero or more.");
@@ -889,12 +904,89 @@ export default function App() {
       await load();
       return setMsg(`Firing saved, but a photo could not upload: ${error.message}`);
     }
+    if (shareNewFiring) {
+      const shared = await sb.rpc("set_firing_shared", {
+        p_firing_id: r.data,
+        p_shared: true,
+      });
+      if (shared.error) {
+        setFiringSaving(false);
+        await load();
+        return setMsg(`Firing saved, but it could not be shared: ${shared.error.message}`);
+      }
+    }
+    const wasShared = shareNewFiring;
     setFiringSaving(false);
     setRecipe("");
     setBeforePhoto(null);
     setPhoto(null);
-    setMsg("Firing result saved ✓");
+    setShareNewFiring(false);
+    setMsg(wasShared ? "Firing result saved and shared in Explore ✓" : "Firing result saved ✓");
     await load();
+  }
+  async function toggleFiringShare(firingId: string, nextShared: boolean, photoCount: number) {
+    if (nextShared && Number(photoCount) < 1) {
+      return setMsg("Add at least one firing photo before sharing in Explore.");
+    }
+    setSharingFiringId(firingId);
+    const r = await sb.rpc("set_firing_shared", {
+      p_firing_id: firingId,
+      p_shared: nextShared,
+    });
+    setSharingFiringId("");
+    if (r.error) return setMsg(r.error.message);
+    setFirings((current) =>
+      current.map((item) =>
+        item.firing_id === firingId ? { ...item, shared: nextShared } : item,
+      ),
+    );
+    setMsg(nextShared ? "Firing shared in Explore ✓" : "Firing removed from Explore ✓");
+    if (exploreStarted) await searchExplore();
+  }
+  async function searchExplore() {
+    setExploreLoading(true);
+    setExploreStarted(true);
+    setMsg("");
+    const r = await sb.rpc("get_explore_firings", {
+      p_query: exploreQuery.trim() || null,
+      p_glaze_id: null,
+      p_clay_id: null,
+      p_effect: exploreEffect || null,
+      p_cone: exploreCone ? Number(exploreCone) : null,
+      p_min_rating: exploreRating ? Number(exploreRating) : null,
+      p_limit: 40,
+    });
+    if (r.error) {
+      setExploreLoading(false);
+      setExploreResults([]);
+      return setMsg(r.error.message);
+    }
+    const signedRows = await Promise.all(
+      (r.data ?? []).map(async (item: any) => {
+        if (!item.primary_photo_path) return item;
+        const signed = await sb.storage
+          .from("firing-photos")
+          .createSignedUrl(item.primary_photo_path, 3600);
+        return { ...item, primaryPhotoUrl: signed.data?.signedUrl || "" };
+      }),
+    );
+    setExploreResults(signedRows);
+    setExploreLoading(false);
+  }
+  function openExplore() {
+    setMsg("");
+    setTab("explore");
+    window.requestAnimationFrame(() => window.scrollTo(0, 0));
+    if (!exploreStarted) void searchExplore();
+  }
+  function clearExplore() {
+    setExploreQuery("");
+    setExploreEffect("");
+    setExploreCone("");
+    setExploreRating("");
+    setExploreResults([]);
+    setExploreStarted(false);
+    setMsg("");
   }
   async function view(id: string) {
     const r = await sb.rpc("get_firing_photos", { p_firing_id: id });
@@ -1401,6 +1493,19 @@ export default function App() {
                       {firings.length}{" "}
                       {firings.length === 1 ? "firing" : "firings"} recorded
                     </small>
+                  </span>
+                  <ArrowRight size={18} />
+                </button>
+                <button
+                  className="quick-action explore"
+                  onClick={openExplore}
+                >
+                  <span className="quick-icon">
+                    <Compass size={21} />
+                  </span>
+                  <span>
+                    <strong>Explore Results</strong>
+                    <small>See real firings shared by potters</small>
                   </span>
                   <ArrowRight size={18} />
                 </button>
@@ -2193,6 +2298,16 @@ export default function App() {
                 </button>
               </form>
             )}
+            {kind === "glaze" && (
+              <button className="explore-entry-card" type="button" onClick={openExplore}>
+                <span className="quick-icon"><Compass size={21} /></span>
+                <span>
+                  <strong>Explore real firing results</strong>
+                  <small>Browse photos and notes shared by other potters</small>
+                </span>
+                <ArrowRight size={18} />
+              </button>
+            )}
             {searchStarted && (
               <div className="results-heading">
                 <strong>
@@ -2327,6 +2442,136 @@ export default function App() {
                 </button>
               </div>
             ))}
+          </>
+        )}
+        {tab === "explore" && (
+          <>
+            {msg && (
+              <div className="notice explore-notice" role="status" aria-live="polite">
+                {msg}
+              </div>
+            )}
+            <section className="hero explore-hero">
+              <span className="eyebrow">COMMUNITY FIRINGS</span>
+              <h1>Explore Results</h1>
+              <p>See glaze combinations, photos, and kiln notes that potters chose to share.</p>
+            </section>
+            <form
+              className="card explore-search-card"
+              onSubmit={(e) => {
+                e.preventDefault();
+                searchExplore();
+              }}
+            >
+              <label className="field-label">
+                Glaze or Clay
+                <div className="explore-query-row">
+                  <Search size={20} />
+                  <input
+                    className="input"
+                    placeholder="Search a glaze, clay, or color"
+                    value={exploreQuery}
+                    onChange={(e) => setExploreQuery(e.target.value)}
+                    enterKeyHint="search"
+                  />
+                </div>
+              </label>
+              <div className="explore-filter-grid">
+                <label className="field-label">
+                  Effect
+                  <select className="select" value={exploreEffect} onChange={(e) => setExploreEffect(e.target.value)}>
+                    <option value="">Any effect</option>
+                    {effectOptions.map((effect) => <option key={effect} value={effect}>{effect}</option>)}
+                  </select>
+                </label>
+                <label className="field-label">
+                  Cone
+                  <select className="select" value={exploreCone} onChange={(e) => setExploreCone(e.target.value)}>
+                    <option value="">Any cone</option>
+                    {[5, 6, 7, 8, 9, 10].map((value) => <option key={value} value={value}>Cone {value}</option>)}
+                  </select>
+                </label>
+                <label className="field-label">
+                  Rating
+                  <select className="select" value={exploreRating} onChange={(e) => setExploreRating(e.target.value)}>
+                    <option value="">Any rating</option>
+                    <option value="4">4 stars &amp; up</option>
+                    <option value="5">5 stars</option>
+                  </select>
+                </label>
+              </div>
+              <div className="explore-search-actions">
+                <button className="btn ghost" type="button" onClick={clearExplore}>Clear</button>
+                <button className="btn primary" type="submit">
+                  <Search size={17} />
+                  {exploreLoading ? "Searching…" : "Search Results"}
+                </button>
+              </div>
+            </form>
+            <div className="explore-results-heading">
+              <strong>
+                {exploreLoading
+                  ? "Loading shared firings…"
+                  : exploreResults.length + " shared " + (exploreResults.length === 1 ? "result" : "results")}
+              </strong>
+              <span>Private by default</span>
+            </div>
+            {!exploreLoading && exploreStarted && exploreResults.length === 0 && (
+              <div className="card explore-empty">
+                <Compass size={28} />
+                <strong>No shared firings match yet.</strong>
+                <p className="muted">Clear a filter, or be the first to share a firing result from your Journal.</p>
+                <button className="btn secondary" type="button" onClick={() => setTab("journal")}>Open Firing Journal</button>
+              </div>
+            )}
+            <div className="explore-grid">
+              {exploreResults.map((item) => (
+                <article className="explore-card" key={item.firing_id}>
+                  <div className="explore-photo-wrap">
+                    {item.primaryPhotoUrl ? (
+                      <img src={item.primaryPhotoUrl} alt={(item.recipe_name || "Glaze") + " firing result"} />
+                    ) : (
+                      <div className="explore-photo-placeholder"><Compass size={28} /></div>
+                    )}
+                    {Number(item.photo_count) > 1 && <span className="explore-photo-count">{item.photo_count} photos</span>}
+                  </div>
+                  <div className="explore-card-body">
+                    <div className="row explore-card-heading">
+                      <div>
+                        <strong>{item.recipe_name || "Shared firing"}</strong>
+                        <small>
+                          {item.clay_name || "Clay not listed"}
+                          {item.cone != null ? " · Cone " + item.cone : ""}
+                        </small>
+                      </div>
+                      <span className="explore-rating">{item.rating || "—"}/5</span>
+                    </div>
+                    {Array.isArray(item.layers) && item.layers.length > 0 && (
+                      <div className="explore-layer-list">
+                        {item.layers.map((layer: any, index: number) => (
+                          <span key={(layer.glaze_id || layer.glaze_name || "layer") + index}>
+                            {layer.glaze_name}{layer.coats ? " · " + layer.coats + " coats" : ""}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <div className="explore-result-chips">
+                      {item.color_result && <span>{item.color_result}</span>}
+                      {item.surface_result && <span>{item.surface_result}</span>}
+                      {item.movement_result && <span>{item.movement_result}</span>}
+                    </div>
+                    {item.notes && <p>{item.notes}</p>}
+                    <button className="btn secondary explore-detail-button" type="button" onClick={() => openFiringDetail(item.firing_id)}>
+                      View Firing Details <ArrowRight size={16} />
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+            <div className="explore-privacy-note">
+              <ShieldCheck size={21} />
+              <p><strong>Sharing is always optional.</strong> Only firings deliberately shared from the Journal appear here. Account names and emails are not shown.</p>
+            </div>
           </>
         )}
         {tab === "build" && (
@@ -2754,6 +2999,24 @@ export default function App() {
                   <input className="input" type="file" accept="image/*" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} />
                 </label>
               </div>
+              <label className={"share-firing-option " + (beforePhoto || photo ? "" : "is-disabled")}>
+                <input
+                  type="checkbox"
+                  checked={shareNewFiring}
+                  disabled={!beforePhoto && !photo}
+                  onChange={(e) => setShareNewFiring(e.target.checked)}
+                />
+                <span>
+                  <strong>Share this result in Explore</strong>
+                  <small>
+                    Other signed-in potters can see this firing, its recipe details, and photos.
+                    Your name and email stay private.
+                  </small>
+                </span>
+              </label>
+              {!beforePhoto && !photo && (
+                <p className="share-photo-note">Add a before or after photo to make sharing available.</p>
+              )}
               <button className="btn primary journal-save" disabled={firingSaving} onClick={fire}>
                 {firingSaving ? "Saving Firing…" : "Save Firing Result"}
               </button>
@@ -2784,11 +3047,29 @@ export default function App() {
                   <span>E{f.evidence_tier} evidence</span>
                   {f.photo_count > 0 && <span>{f.photo_count} {Number(f.photo_count) === 1 ? "photo" : "photos"}</span>}
                   {f.prediction_movement_risk != null && <span>Predicted risk {f.prediction_movement_risk}/10</span>}
+                  {f.shared && <span className="is-shared">Shared in Explore</span>}
                 </div>
                 {f.movement_result && <p>{f.movement_result}</p>}
-                <button className="btn secondary firing-detail-button" onClick={() => openFiringDetail(f.firing_id)}>
-                  Compare Prediction &amp; Result <ArrowRight size={16} />
-                </button>
+                <div className="firing-card-actions">
+                  <button className="btn secondary firing-detail-button" onClick={() => openFiringDetail(f.firing_id)}>
+                    View Firing Details <ArrowRight size={16} />
+                  </button>
+                  <button
+                    className={"btn firing-share-button " + (f.shared ? "is-shared" : "ghost")}
+                    disabled={sharingFiringId === f.firing_id || (!f.shared && Number(f.photo_count) < 1)}
+                    title={!f.shared && Number(f.photo_count) < 1 ? "Add a photo before sharing" : ""}
+                    onClick={() => toggleFiringShare(f.firing_id, !f.shared, Number(f.photo_count))}
+                  >
+                    <Share2 size={16} />
+                    {sharingFiringId === f.firing_id
+                      ? "Updating…"
+                      : f.shared
+                        ? "Remove from Explore"
+                        : Number(f.photo_count) < 1
+                          ? "Add photo to share"
+                          : "Share in Explore"}
+                  </button>
+                </div>
               </div>
             ))}
           </>
@@ -2924,7 +3205,9 @@ export default function App() {
                       </div>
                     </section>
                   )}
-                  <button className="btn ghost firing-detail-close" onClick={() => setFiringDetail(null)}>Back to Journal</button>
+                  <button className="btn ghost firing-detail-close" onClick={() => setFiringDetail(null)}>
+                    {tab === "explore" ? "Back to Explore" : "Back to Journal"}
+                  </button>
                 </>
               )}
             </section>
@@ -3298,7 +3581,7 @@ export default function App() {
             </div>
           </div>
         )}
-        {msg && tab !== "find" && tab !== "account" && (
+        {msg && tab !== "find" && tab !== "account" && tab !== "explore" && (
           <div className="notice">{msg}</div>
         )}
         <nav className="bottom">
@@ -3313,7 +3596,9 @@ export default function App() {
               key={t}
               className={
                 "nav " +
-                (tab === t || (tab === "studio" && t === "shelf")
+                (tab === t ||
+                  (tab === "explore" && t === "find") ||
+                  (tab === "studio" && t === "shelf")
                   ? "active"
                   : "")
               }
