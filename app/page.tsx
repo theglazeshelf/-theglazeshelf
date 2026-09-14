@@ -82,10 +82,25 @@ export default function App() {
     [studioShelf, setStudioShelf] = useState<any[]>([]),
     [firings, setFirings] = useState<any[]>([]),
     [recipe, setRecipe] = useState(""),
+    [firingDate, setFiringDate] = useState(
+      new Date().toISOString().slice(0, 10),
+    ),
+    [firingSchedule, setFiringSchedule] = useState("Standard / medium"),
+    [firingOrientation, setFiringOrientation] = useState("vertical"),
     [movement, setMovement] = useState(""),
+    [travelDistance, setTravelDistance] = useState(""),
+    [colorResult, setColorResult] = useState(""),
+    [surfaceResult, setSurfaceResult] = useState(""),
+    [defects, setDefects] = useState(""),
+    [firingNotes, setFiringNotes] = useState(""),
     [rating, setRating] = useState(5),
+    [beforePhoto, setBeforePhoto] = useState<File | null>(null),
     [photo, setPhoto] = useState<File | null>(null),
-    [preview, setPreview] = useState("");
+    [preview, setPreview] = useState(""),
+    [firingDetail, setFiringDetail] = useState<any>(null),
+    [firingDetailPhotos, setFiringDetailPhotos] = useState<any[]>([]),
+    [firingDetailLoading, setFiringDetailLoading] = useState(false),
+    [firingSaving, setFiringSaving] = useState(false);
   const [glazeDetail, setGlazeDetail] = useState<any>(null),
     [glazeDetailLoading, setGlazeDetailLoading] = useState(false),
     [glazeDetailScroll, setGlazeDetailScroll] = useState(0),
@@ -256,9 +271,9 @@ export default function App() {
   async function load(preferredStudioId = "") {
     const [a, b, c, d] = await Promise.all([
       sb.rpc("get_my_shelf_v2"),
-      sb.rpc("get_my_recipes"),
+      sb.rpc("get_my_recipes_v2"),
       sb.rpc("get_my_studios"),
-      sb.rpc("get_my_firings"),
+      sb.rpc("get_my_firings_v2"),
     ]);
     setShelf(a.data ?? []);
     setRecipes(b.data ?? []);
@@ -706,7 +721,7 @@ export default function App() {
       recipeName.trim() ||
       layers.map((x) => x.glaze_name).join(" + ") ||
       "Saved Combination";
-    const r = await sb.rpc("save_recipe_from_stack", {
+    const r = await sb.rpc("save_recipe_from_stack_v2", {
       p_name: name,
       p_clay_id: clay?.clay_id ?? null,
       p_cone: cone,
@@ -716,6 +731,17 @@ export default function App() {
       p_glaze_ids: layers.map((x) => x.glaze_id),
       p_coats: layers.map((x) => x.coats),
       p_placements: layers.map(encodeApplication),
+      p_prediction_verdict: analysis?.verdict || null,
+      p_prediction_movement_risk:
+        analysis?.movement_risk == null ? null : Number(analysis.movement_risk),
+      p_prediction_warnings: analysis?.warnings || [],
+      p_prediction_rationale: analysis?.rationale || null,
+      p_prediction_confidence: analysis?.confidence || null,
+      p_prediction_effect_match: analysis?.effect_match || null,
+      p_prediction_food_guidance:
+        analysis?.food_contact_guidance || null,
+      p_prediction_compatibility: analysis?.compatibility || null,
+      p_prediction_clay_influence: analysis?.clay_influence || null,
     });
     if (r.error) setMsg(r.error.message);
     else {
@@ -743,7 +769,7 @@ export default function App() {
     }
   }
   async function openRecipe(id: string) {
-    const r = await sb.rpc("get_recipe_detail", { p_recipe_id: id });
+    const r = await sb.rpc("get_recipe_detail_v2", { p_recipe_id: id });
     if (r.error) setMsg(r.error.message);
     else setRecipeDetail(r.data ?? []);
   }
@@ -793,36 +819,82 @@ export default function App() {
     setRecipe(id);
     if (recipeCone) setCone(Number(recipeCone));
     setRecipeDetail([]);
+    setFiringDate(new Date().toISOString().slice(0, 10));
+    setFiringSchedule("Standard / medium");
+    setFiringOrientation("vertical");
+    setMovement("");
+    setTravelDistance("");
+    setColorResult("");
+    setSurfaceResult("");
+    setDefects("");
+    setFiringNotes("");
+    setRating(5);
+    setBeforePhoto(null);
+    setPhoto(null);
     setTab("journal");
+    window.requestAnimationFrame(() => window.scrollTo(0, 0));
+  }
+  async function uploadFiringPhoto(
+    firingId: string,
+    file: File,
+    photoType: "before" | "after",
+  ) {
+    if (file.size > 10 * 1024 * 1024) {
+      throw new Error(`${photoType === "before" ? "Before" : "After"} photo must be smaller than 10 MB.`);
+    }
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const path = `${session.user.id}/${firingId}/${photoType}-${Date.now()}-${safeName}`;
+    const up = await sb.storage.from("firing-photos").upload(path, file, {
+      contentType: file.type,
+    });
+    if (up.error) throw up.error;
+    const attached = await sb.rpc("attach_firing_photo", {
+      p_firing_id: firingId,
+      p_storage_path: path,
+      p_photo_type: photoType,
+    });
+    if (attached.error) throw attached.error;
   }
   async function fire() {
     if (!recipe) return setMsg("Choose a recipe.");
-    const r = await sb.rpc("log_firing", {
-      p_recipe_id: recipe,
-      p_fired_at: new Date().toISOString(),
-      p_cone: cone,
-      p_schedule: null,
-      p_orientation: orientation,
-      p_movement_result: movement || null,
-      p_travel_mm: null,
-      p_color_result: null,
-      p_surface_result: null,
-      p_defects: null,
-      p_rating: rating,
-    });
-    if (r.error) return setMsg(r.error.message);
-    if (photo) {
-      const path = `${session.user.id}/${r.data}/${Date.now()}-${photo.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-      const up = await sb.storage.from("firing-photos").upload(path, photo);
-      if (up.error) return setMsg(up.error.message);
-      await sb.rpc("attach_firing_photo", {
-        p_firing_id: r.data,
-        p_storage_path: path,
-        p_photo_type: "after",
-      });
+    if (!firingDate) return setMsg("Choose the firing date.");
+    const travel = travelDistance.trim() === "" ? null : Number(travelDistance);
+    if (travel != null && (!Number.isFinite(travel) || travel < 0)) {
+      return setMsg("Movement distance must be zero or more.");
     }
-    setMsg("Firing saved ✓");
-    load();
+    setFiringSaving(true);
+    const r = await sb.rpc("log_firing_v2", {
+      p_recipe_id: recipe,
+      p_fired_at: new Date(`${firingDate}T12:00:00`).toISOString(),
+      p_cone: cone,
+      p_schedule: firingSchedule || null,
+      p_orientation: firingOrientation || null,
+      p_movement_result: movement || null,
+      p_travel_mm: travel,
+      p_color_result: colorResult || null,
+      p_surface_result: surfaceResult || null,
+      p_defects: defects || null,
+      p_rating: rating,
+      p_notes: firingNotes || null,
+    });
+    if (r.error) {
+      setFiringSaving(false);
+      return setMsg(r.error.message);
+    }
+    try {
+      if (beforePhoto) await uploadFiringPhoto(r.data, beforePhoto, "before");
+      if (photo) await uploadFiringPhoto(r.data, photo, "after");
+    } catch (error: any) {
+      setFiringSaving(false);
+      await load();
+      return setMsg(`Firing saved, but a photo could not upload: ${error.message}`);
+    }
+    setFiringSaving(false);
+    setRecipe("");
+    setBeforePhoto(null);
+    setPhoto(null);
+    setMsg("Firing result saved ✓");
+    await load();
   }
   async function view(id: string) {
     const r = await sb.rpc("get_firing_photos", { p_firing_id: id });
@@ -831,6 +903,32 @@ export default function App() {
       .from("firing-photos")
       .createSignedUrl(r.data[0].storage_path, 3600);
     if (s.data) setPreview(s.data.signedUrl);
+  }
+  async function openFiringDetail(id: string) {
+    setFiringDetailLoading(true);
+    setFiringDetail({ firing_id: id });
+    setFiringDetailPhotos([]);
+    const [detail, photos] = await Promise.all([
+      sb.rpc("get_firing_detail_v2", { p_firing_id: id }),
+      sb.rpc("get_firing_photos", { p_firing_id: id }),
+    ]);
+    if (detail.error || photos.error) {
+      setFiringDetailLoading(false);
+      setFiringDetail(null);
+      return setMsg(detail.error?.message || photos.error?.message || "Could not load firing details.");
+    }
+    const photoRows = photos.data ?? [];
+    const signed = await Promise.all(
+      photoRows.map(async (item: any) => {
+        const url = await sb.storage
+          .from("firing-photos")
+          .createSignedUrl(item.storage_path, 3600);
+        return { ...item, signedUrl: url.data?.signedUrl || "" };
+      }),
+    );
+    setFiringDetail(detail.data?.[0] || null);
+    setFiringDetailPhotos(signed.filter((item) => item.signedUrl));
+    setFiringDetailLoading(false);
   }
   const combinedMaterials = useMemo(() => {
     const items = new Map<string, any>();
@@ -1810,19 +1908,41 @@ export default function App() {
                 )}
                 {recipes.map((r) => (
                   <div className="item recipe-card" key={r.recipe_id}>
-                    <div className="row">
+                    <div className="row recipe-card-heading">
                       <div>
                         <strong>{r.name}</strong>
                         <div className="muted">
                           {r.clay_name || "No clay selected"} • Cone {r.cone}
                         </div>
                       </div>
-                      <span className="tag">
-                        {r.layer_count}{" "}
+                      {r.prediction_movement_risk != null ? (
+                        <span className="prediction-risk">
+                          Risk {r.prediction_movement_risk}/10
+                        </span>
+                      ) : (
+                        <span className="tag">Saved recipe</span>
+                      )}
+                    </div>
+                    <div className="recipe-card-stats">
+                      <span>
+                        <strong>{r.layer_count}</strong>{" "}
                         {Number(r.layer_count) === 1 ? "layer" : "layers"}
                       </span>
+                      <span>
+                        <strong>{r.firing_count || 0}</strong>{" "}
+                        {Number(r.firing_count) === 1 ? "firing" : "firings"}
+                      </span>
+                      {r.latest_rating && (
+                        <span><strong>{r.latest_rating}/5</strong> latest</span>
+                      )}
                     </div>
-                    {r.goal && <p>{r.goal}</p>}
+                    {r.prediction_verdict && (
+                      <div className="recipe-prediction-preview">
+                        <span className="eyebrow">PREDICTION</span>
+                        <strong>{r.prediction_verdict}</strong>
+                      </div>
+                    )}
+                    {r.goal && <p className="recipe-goal">{r.goal}</p>}
                     <div className="grid">
                       <button
                         className="btn secondary"
@@ -2516,10 +2636,13 @@ export default function App() {
         )}
         {tab === "journal" && (
           <>
-            <section className="hero">
+            <section className="hero journal-hero">
+              <span className="eyebrow">TEST. FIRE. LEARN.</span>
               <h1>Firing Journal</h1>
+              <p>Save what happened so every firing makes the next one smarter.</p>
             </section>
             <div className="card stack journal-card">
+              <span className="journal-step">1 · Firing setup</span>
               <label className="field-label">
                 Recipe
                 <select
@@ -2541,28 +2664,73 @@ export default function App() {
                   ))}
                 </select>
               </label>
-              {recipe && (
-                <div className="firing-cone">
-                  <span>Firing Cone</span>
-                  <strong>Cone {cone}</strong>
-                </div>
-              )}
+              <div className="journal-two-column">
+                <label className="field-label">
+                  Firing Date
+                  <input className="input" type="date" value={firingDate} onChange={(e) => setFiringDate(e.target.value)} />
+                </label>
+                <label className="field-label">
+                  Firing Cone
+                  <select className="select" value={cone} onChange={(e) => setCone(+e.target.value)}>
+                    {[5, 6, 7, 8, 9, 10].map((value) => (
+                      <option key={value} value={value}>Cone {value}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div className="journal-two-column">
+                <label className="field-label">
+                  Kiln Schedule
+                  <select className="select" value={firingSchedule} onChange={(e) => setFiringSchedule(e.target.value)}>
+                    <option>Standard / medium</option>
+                    <option>Slow</option>
+                    <option>Fast</option>
+                    <option>Custom / programmed</option>
+                  </select>
+                </label>
+                <label className="field-label">
+                  Project Orientation
+                  <select className="select" value={firingOrientation} onChange={(e) => setFiringOrientation(e.target.value)}>
+                    <option value="vertical">Vertical</option>
+                    <option value="horizontal">Horizontal</option>
+                    <option value="sculptural">Sculptural / mixed</option>
+                  </select>
+                </label>
+              </div>
+              <div className="journal-section-divider" />
+              <span className="journal-step">2 · What happened</span>
               <label className="field-label">
                 Movement After Firing
-                <input
-                  className="input"
-                  placeholder="Describe running, pooling, or movement"
-                  value={movement}
-                  onChange={(e) => setMovement(e.target.value)}
-                />
+                <textarea className="textarea" placeholder="Describe running, pooling, breaking, or movement" value={movement} onChange={(e) => setMovement(e.target.value)} />
+              </label>
+              <div className="journal-two-column">
+                <label className="field-label">
+                  Movement Distance
+                  <input className="input" type="number" inputMode="decimal" min="0" step="0.5" placeholder="mm (optional)" value={travelDistance} onChange={(e) => setTravelDistance(e.target.value)} />
+                </label>
+                <label className="field-label">
+                  Surface Result
+                  <select className="select" value={surfaceResult} onChange={(e) => setSurfaceResult(e.target.value)}>
+                    <option value="">Choose…</option>
+                    <option>Glossy</option>
+                    <option>Satin</option>
+                    <option>Matte</option>
+                    <option>Mixed / varied</option>
+                    <option>Textured</option>
+                  </select>
+                </label>
+              </div>
+              <label className="field-label">
+                Color Result
+                <input className="input" placeholder="What colors developed after firing?" value={colorResult} onChange={(e) => setColorResult(e.target.value)} />
+              </label>
+              <label className="field-label">
+                Defects or Surprises
+                <input className="input" placeholder="None, pinholes, crawling, crazing…" value={defects} onChange={(e) => setDefects(e.target.value)} />
               </label>
               <label className="field-label">
                 Result Rating
-                <select
-                  className="select"
-                  value={rating}
-                  onChange={(e) => setRating(+e.target.value)}
-                >
+                <select className="select" value={rating} onChange={(e) => setRating(+e.target.value)}>
                   <option value="5">★★★★★ Excellent</option>
                   <option value="4">★★★★ Very good</option>
                   <option value="3">★★★ Good</option>
@@ -2570,39 +2738,197 @@ export default function App() {
                   <option value="1">★ Poor result</option>
                 </select>
               </label>
-              <label className="field-label file-field">
-                Add Result Photo
-                <input
-                  className="input"
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
-                />
+              <label className="field-label">
+                Learning Notes
+                <textarea className="textarea" placeholder="What would you repeat or change next time?" value={firingNotes} onChange={(e) => setFiringNotes(e.target.value)} />
               </label>
-              <button className="btn primary" onClick={fire}>
-                Save Firing
+              <div className="journal-section-divider" />
+              <span className="journal-step">3 · Photos</span>
+              <div className="journal-two-column photo-input-grid">
+                <label className="field-label file-field">
+                  Before Firing
+                  <input className="input" type="file" accept="image/*" onChange={(e) => setBeforePhoto(e.target.files?.[0] ?? null)} />
+                </label>
+                <label className="field-label file-field">
+                  After Firing
+                  <input className="input" type="file" accept="image/*" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} />
+                </label>
+              </div>
+              <button className="btn primary journal-save" disabled={firingSaving} onClick={fire}>
+                {firingSaving ? "Saving Firing…" : "Save Firing Result"}
               </button>
             </div>
+            <div className="journal-history-heading">
+              <strong>Firing History</strong>
+              <span>{firings.length} saved</span>
+            </div>
+            {firings.length === 0 && (
+              <div className="card journal-empty">
+                <strong>Your first firing result will appear here.</strong>
+                <p className="muted">Choose a saved recipe above, then record what happened in the kiln.</p>
+              </div>
+            )}
             {firings.map((f) => (
-              <div className="item" key={f.firing_id}>
-                <div className="row">
-                  <strong>{f.recipe_name}</strong>
-                  <span className="tag">E{f.evidence_tier}</span>
+              <div className="item firing-card" key={f.firing_id}>
+                <div className="row firing-card-heading">
+                  <div>
+                    <strong>{f.recipe_name}</strong>
+                    <div className="muted">
+                      {f.fired_at ? new Date(f.fired_at).toLocaleDateString() : "Date not recorded"}
+                      {f.cone != null ? ` • Cone ${f.cone}` : ""}
+                    </div>
+                  </div>
+                  <span className="firing-rating">{f.rating || "—"}/5</span>
                 </div>
-                {f.photo_count > 0 && (
-                  <button
-                    className="btn ghost"
-                    onClick={() => view(f.firing_id)}
-                  >
-                    View Photo
-                  </button>
-                )}
+                <div className="firing-card-badges">
+                  <span>E{f.evidence_tier} evidence</span>
+                  {f.photo_count > 0 && <span>{f.photo_count} {Number(f.photo_count) === 1 ? "photo" : "photos"}</span>}
+                  {f.prediction_movement_risk != null && <span>Predicted risk {f.prediction_movement_risk}/10</span>}
+                </div>
+                {f.movement_result && <p>{f.movement_result}</p>}
+                <button className="btn secondary firing-detail-button" onClick={() => openFiringDetail(f.firing_id)}>
+                  Compare Prediction &amp; Result <ArrowRight size={16} />
+                </button>
               </div>
             ))}
-            {preview && (
-              <img className="photo" src={preview} alt="Firing result" />
-            )}
           </>
+        )}
+        {firingDetail && (
+          <div className="overlay firing-detail-overlay" onClick={() => setFiringDetail(null)}>
+            <section
+              className="firing-detail-sheet"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Firing result details"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {firingDetailLoading ? (
+                <div className="detail-loading">Loading firing details…</div>
+              ) : (
+                <>
+                  <div className="row firing-detail-heading">
+                    <div>
+                      <span className="eyebrow">FIRING RESULT</span>
+                      <h2>{firingDetail.recipe_name}</h2>
+                      <p>
+                        {firingDetail.fired_at
+                          ? new Date(firingDetail.fired_at).toLocaleDateString()
+                          : "Date not recorded"}
+                        {firingDetail.fired_cone != null
+                          ? ` • Cone ${firingDetail.fired_cone}`
+                          : ""}
+                      </p>
+                    </div>
+                    <button className="close" aria-label="Close firing details" onClick={() => setFiringDetail(null)}>×</button>
+                  </div>
+                  <div className="firing-detail-meta">
+                    {firingDetail.schedule && <span>{firingDetail.schedule}</span>}
+                    {firingDetail.orientation && <span>{titleCase(firingDetail.orientation)}</span>}
+                    <span>{firingDetail.rating || "—"}/5 rating</span>
+                  </div>
+                  <section className="comparison-section">
+                    <span className="eyebrow">PREDICTION VS. RESULT</span>
+                    {!firingDetail.prediction_verdict && (
+                      <p className="legacy-prediction-note">
+                        This older recipe did not save a prediction snapshot. Its firing result is still preserved below.
+                      </p>
+                    )}
+                    <div className="comparison-grid">
+                      <div className="comparison-label">Movement</div>
+                      <div className="comparison-predicted">
+                        <small>Predicted</small>
+                        <strong>
+                          {firingDetail.prediction_movement_risk != null
+                            ? `${firingDetail.prediction_movement_risk}/10 risk`
+                            : "Not saved"}
+                        </strong>
+                        {firingDetail.prediction_verdict && <span>{firingDetail.prediction_verdict}</span>}
+                      </div>
+                      <div className="comparison-actual">
+                        <small>Actual</small>
+                        <strong>{firingDetail.movement_result || "No movement note"}</strong>
+                        {firingDetail.travel_mm != null && <span>{firingDetail.travel_mm} mm traveled</span>}
+                      </div>
+                      <div className="comparison-label">Appearance</div>
+                      <div className="comparison-predicted">
+                        <small>Predicted</small>
+                        <strong>{firingDetail.prediction_effect_match || "Not saved"}</strong>
+                      </div>
+                      <div className="comparison-actual">
+                        <small>Actual</small>
+                        <strong>{firingDetail.color_result || "No color note"}</strong>
+                        {firingDetail.surface_result && <span>{firingDetail.surface_result} surface</span>}
+                      </div>
+                      <div className="comparison-label">Warnings</div>
+                      <div className="comparison-predicted">
+                        <small>Before firing</small>
+                        {Array.isArray(firingDetail.prediction_warnings) && firingDetail.prediction_warnings.length > 0 ? (
+                          <ul>
+                            {firingDetail.prediction_warnings.map((warning: string, i: number) => <li key={i}>{warning}</li>)}
+                          </ul>
+                        ) : <strong>None saved</strong>}
+                      </div>
+                      <div className="comparison-actual">
+                        <small>After firing</small>
+                        <strong>{firingDetail.defects || "No defects recorded"}</strong>
+                      </div>
+                      <div className="comparison-label">Cone</div>
+                      <div className="comparison-predicted">
+                        <small>Predicted</small>
+                        <strong>{firingDetail.prediction_compatibility || `Recipe cone ${firingDetail.recipe_cone || "—"}`}</strong>
+                      </div>
+                      <div className="comparison-actual">
+                        <small>Actual</small>
+                        <strong>Cone {firingDetail.fired_cone || "—"}</strong>
+                      </div>
+                    </div>
+                  </section>
+                  {Array.isArray(firingDetail.layers) && firingDetail.layers.length > 0 && (
+                    <section className="firing-layers-section">
+                      <span className="eyebrow">RECIPE STACK</span>
+                      {firingDetail.layers.map((layer: any, i: number) => {
+                        const application = decodeApplication(layer.placement);
+                        return (
+                          <div className="firing-layer-row" key={layer.glaze_id + i}>
+                            <span className="layer-number">{i + 1}</span>
+                            <div>
+                              <strong>{layer.glaze_name}</strong>
+                              <small>{layer.manufacturer}</small>
+                            </div>
+                            <div>
+                              <strong>{layer.coats || "—"} coats</strong>
+                              <small>{titleCase(application.surface)} · {titleCase(application.placement)}</small>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </section>
+                  )}
+                  {(firingDetail.notes || firingDetail.prediction_rationale) && (
+                    <section className="firing-learning-section">
+                      <span className="eyebrow">WHAT TO CARRY FORWARD</span>
+                      {firingDetail.notes && <p><strong>Your notes:</strong> {firingDetail.notes}</p>}
+                      {firingDetail.prediction_rationale && <p><strong>Original rationale:</strong> {firingDetail.prediction_rationale}</p>}
+                    </section>
+                  )}
+                  {firingDetailPhotos.length > 0 && (
+                    <section className="firing-photo-section">
+                      <span className="eyebrow">PHOTOS</span>
+                      <div className="firing-photo-grid">
+                        {firingDetailPhotos.map((item) => (
+                          <figure key={item.photo_id}>
+                            <img src={item.signedUrl} alt={`${item.photo_type} firing`} />
+                            <figcaption>{titleCase(item.photo_type)}</figcaption>
+                          </figure>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+                  <button className="btn ghost firing-detail-close" onClick={() => setFiringDetail(null)}>Back to Journal</button>
+                </>
+              )}
+            </section>
+          </div>
         )}
         {inventoryItem && (
           <div className="overlay inventory-overlay" onClick={() => setInventoryItem(null)}>
@@ -2878,6 +3204,47 @@ export default function App() {
                   <span className="eyebrow">DESIRED EFFECT</span>
                   <p>{recipeDetail[0].goal}</p>
                 </div>
+              )}
+              {recipeDetail[0].prediction_verdict ? (
+                <section className="saved-prediction-card">
+                  <div className="row">
+                    <div>
+                      <span className="eyebrow">SAVED PREDICTION</span>
+                      <strong>{recipeDetail[0].prediction_verdict}</strong>
+                    </div>
+                    {recipeDetail[0].prediction_movement_risk != null && (
+                      <span className="prediction-risk">
+                        Risk {recipeDetail[0].prediction_movement_risk}/10
+                      </span>
+                    )}
+                  </div>
+                  <div className="saved-prediction-grid">
+                    {recipeDetail[0].prediction_effect_match && (
+                      <div><span>Effect</span><strong>{recipeDetail[0].prediction_effect_match}</strong></div>
+                    )}
+                    {recipeDetail[0].prediction_compatibility && (
+                      <div><span>Cone</span><strong>{recipeDetail[0].prediction_compatibility}</strong></div>
+                    )}
+                    {recipeDetail[0].prediction_food_guidance && (
+                      <div><span>Food contact</span><strong>{recipeDetail[0].prediction_food_guidance}</strong></div>
+                    )}
+                    {recipeDetail[0].prediction_clay_influence && (
+                      <div><span>Clay</span><strong>{recipeDetail[0].prediction_clay_influence}</strong></div>
+                    )}
+                  </div>
+                  {Array.isArray(recipeDetail[0].prediction_warnings) && recipeDetail[0].prediction_warnings.length > 0 && (
+                    <div className="saved-prediction-warnings">
+                      <strong>Before you fire</strong>
+                      <ul>
+                        {recipeDetail[0].prediction_warnings.map((warning: string, i: number) => <li key={i}>{warning}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                </section>
+              ) : (
+                <p className="legacy-prediction-note">
+                  Prediction details were not stored when this older recipe was saved.
+                </p>
               )}
               <div className="recipe-layers">
                 {recipeDetail.map((x, i) => {
