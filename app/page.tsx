@@ -95,16 +95,21 @@ export default function App() {
     [surfaceResult, setSurfaceResult] = useState(""),
     [defects, setDefects] = useState(""),
     [firingNotes, setFiringNotes] = useState(""),
-    [rating, setRating] = useState(5),
-    [beforePhoto, setBeforePhoto] = useState<File | null>(null),
-    [photo, setPhoto] = useState<File | null>(null),
+    [rating, setRating] = useState(0),
+    [beforePhotos, setBeforePhotos] = useState<File[]>([]),
+    [afterPhotos, setAfterPhotos] = useState<File[]>([]),
     [preview, setPreview] = useState(""),
     [firingDetail, setFiringDetail] = useState<any>(null),
     [firingDetailPhotos, setFiringDetailPhotos] = useState<any[]>([]),
     [firingDetailLoading, setFiringDetailLoading] = useState(false),
     [firingSaving, setFiringSaving] = useState(false),
     [shareNewFiring, setShareNewFiring] = useState(false),
-    [sharingFiringId, setSharingFiringId] = useState("");
+    [sharingFiringId, setSharingFiringId] = useState(""),
+    [journalDraftReady, setJournalDraftReady] = useState(false),
+    [journalDraftRestored, setJournalDraftRestored] = useState(false),
+    [draftSavedAt, setDraftSavedAt] = useState(""),
+    [repeatOfFiringId, setRepeatOfFiringId] = useState(""),
+    [promotingFiringId, setPromotingFiringId] = useState("");
   const [exploreResults, setExploreResults] = useState<any[]>([]),
     [exploreLoading, setExploreLoading] = useState(false),
     [exploreStarted, setExploreStarted] = useState(false),
@@ -279,12 +284,112 @@ export default function App() {
     const timer = window.setTimeout(() => setMsg(""), 2800);
     return () => window.clearTimeout(timer);
   }, [msg, tab]);
+  useEffect(() => {
+    if (!session?.user?.id) {
+      setJournalDraftReady(false);
+      return;
+    }
+    const key = `glaze-shelf-journal-draft:${session.user.id}`;
+    try {
+      const saved = window.localStorage.getItem(key);
+      if (saved) {
+        const draft = JSON.parse(saved);
+        setRecipe(draft.recipe || "");
+        setFiringDate(
+          draft.firingDate || new Date().toISOString().slice(0, 10),
+        );
+        setCone(
+          Number(draft.cone || session.user.user_metadata?.default_cone || 6),
+        );
+        setFiringSchedule(draft.firingSchedule || "Standard / medium");
+        setFiringOrientation(draft.firingOrientation || "vertical");
+        setMovement(draft.movement || "");
+        setTravelDistance(draft.travelDistance || "");
+        setColorResult(draft.colorResult || "");
+        setSurfaceResult(draft.surfaceResult || "");
+        setDefects(draft.defects || "");
+        setFiringNotes(draft.firingNotes || "");
+        setRating(Number(draft.rating || 0));
+        setShareNewFiring(Boolean(draft.shareNewFiring));
+        setRepeatOfFiringId(draft.repeatOfFiringId || "");
+        setJournalDraftRestored(true);
+      }
+    } catch {
+      window.localStorage.removeItem(key);
+    }
+    setJournalDraftReady(true);
+  }, [session?.user?.id]);
+  useEffect(() => {
+    if (!journalDraftReady || !session?.user?.id) return;
+    const key = `glaze-shelf-journal-draft:${session.user.id}`;
+    const timer = window.setTimeout(() => {
+      const hasDraft = Boolean(
+        recipe ||
+          movement ||
+          travelDistance ||
+          colorResult ||
+          surfaceResult ||
+          defects ||
+          firingNotes ||
+          rating ||
+          repeatOfFiringId,
+      );
+      if (!hasDraft) {
+        window.localStorage.removeItem(key);
+        setDraftSavedAt("");
+        return;
+      }
+      window.localStorage.setItem(
+        key,
+        JSON.stringify({
+          recipe,
+          firingDate,
+          cone,
+          firingSchedule,
+          firingOrientation,
+          movement,
+          travelDistance,
+          colorResult,
+          surfaceResult,
+          defects,
+          firingNotes,
+          rating,
+          shareNewFiring,
+          repeatOfFiringId,
+        }),
+      );
+      setDraftSavedAt(
+        new Date().toLocaleTimeString([], {
+          hour: "numeric",
+          minute: "2-digit",
+        }),
+      );
+    }, 450);
+    return () => window.clearTimeout(timer);
+  }, [
+    journalDraftReady,
+    session?.user?.id,
+    recipe,
+    firingDate,
+    cone,
+    firingSchedule,
+    firingOrientation,
+    movement,
+    travelDistance,
+    colorResult,
+    surfaceResult,
+    defects,
+    firingNotes,
+    rating,
+    shareNewFiring,
+    repeatOfFiringId,
+  ]);
   async function load(preferredStudioId = "") {
     const [a, b, c, d] = await Promise.all([
       sb.rpc("get_my_shelf_v2"),
       sb.rpc("get_my_recipes_v2"),
       sb.rpc("get_my_studios"),
-      sb.rpc("get_my_firings_v3"),
+      sb.rpc("get_my_firings_v4"),
     ]);
     setShelf(a.data ?? []);
     setRecipes(b.data ?? []);
@@ -839,12 +944,110 @@ export default function App() {
     setSurfaceResult("");
     setDefects("");
     setFiringNotes("");
-    setRating(5);
-    setBeforePhoto(null);
-    setPhoto(null);
+    setRating(0);
+    setBeforePhotos([]);
+    setAfterPhotos([]);
     setShareNewFiring(false);
+    setRepeatOfFiringId("");
     setTab("journal");
     window.requestAnimationFrame(() => window.scrollTo(0, 0));
+  }
+  function resetJournalDraft() {
+    if (session?.user?.id) {
+      window.localStorage.removeItem(
+        `glaze-shelf-journal-draft:${session.user.id}`,
+      );
+    }
+    setRecipe("");
+    setFiringDate(new Date().toISOString().slice(0, 10));
+    setCone(Number(session?.user?.user_metadata?.default_cone || 6));
+    setFiringSchedule("Standard / medium");
+    setFiringOrientation("vertical");
+    setMovement("");
+    setTravelDistance("");
+    setColorResult("");
+    setSurfaceResult("");
+    setDefects("");
+    setFiringNotes("");
+    setRating(0);
+    setBeforePhotos([]);
+    setAfterPhotos([]);
+    setShareNewFiring(false);
+    setRepeatOfFiringId("");
+    setJournalDraftRestored(false);
+    setDraftSavedAt("");
+  }
+  function repeatFiring(firing: any) {
+    setRecipe(firing.recipe_id || "");
+    setFiringDate(new Date().toISOString().slice(0, 10));
+    if (firing.cone != null) setCone(Number(firing.cone));
+    setFiringSchedule(firing.schedule || "Standard / medium");
+    setFiringOrientation(firing.orientation || "vertical");
+    setMovement("");
+    setTravelDistance("");
+    setColorResult("");
+    setSurfaceResult("");
+    setDefects("");
+    setFiringNotes("");
+    setRating(0);
+    setBeforePhotos([]);
+    setAfterPhotos([]);
+    setShareNewFiring(false);
+    setRepeatOfFiringId(firing.firing_id);
+    setJournalDraftRestored(false);
+    setTab("journal");
+    setMsg("Ready to repeat this firing — record the new result below.");
+    window.requestAnimationFrame(() =>
+      window.scrollTo({ top: 0, behavior: "smooth" }),
+    );
+  }
+  async function saveFiringAsRecipe(firing: any) {
+    if (Number(firing.rating) < 4) {
+      return setMsg(
+        "Only successful 4–5 star firings can become proven recipes.",
+      );
+    }
+    setPromotingFiringId(firing.firing_id);
+    const r = await sb.rpc("save_firing_as_recipe", {
+      p_firing_id: firing.firing_id,
+      p_name: `${firing.recipe_name} · Proven`,
+    });
+    setPromotingFiringId("");
+    if (r.error) return setMsg(r.error.message);
+    setFirings((current) =>
+      current.map((item) =>
+        item.firing_id === firing.firing_id
+          ? { ...item, promoted_recipe_id: r.data }
+          : item,
+      ),
+    );
+    setMsg("Successful firing saved as a proven recipe ✓");
+    await load();
+  }
+  function clearBuild() {
+    const hasContent = Boolean(
+      projectDescription.trim() ||
+        clay ||
+        layers.length ||
+        goal.trim() ||
+        recipeName.trim() ||
+        analysis,
+    );
+    if (hasContent && !window.confirm("Clear this build and start over?"))
+      return;
+    setProjectDescription("");
+    setClay(null);
+    setCone(Number(session?.user?.user_metadata?.default_cone || 6));
+    setOrientation("vertical");
+    setTexture("smooth");
+    setGoal("");
+    setLayers([]);
+    setRecipeName("");
+    setAnalysis(null);
+    setMsg("Build cleared ✓");
+    window.requestAnimationFrame(() =>
+      window.scrollTo({ top: 0, behavior: "smooth" }),
+    );
   }
   async function uploadFiringPhoto(
     firingId: string,
@@ -870,7 +1073,12 @@ export default function App() {
   async function fire() {
     if (!recipe) return setMsg("Choose a recipe.");
     if (!firingDate) return setMsg("Choose the firing date.");
-    if (shareNewFiring && !beforePhoto && !photo) {
+    if (!rating) return setMsg("Tap a star to rate this firing result.");
+    if (
+      shareNewFiring &&
+      beforePhotos.length === 0 &&
+      afterPhotos.length === 0
+    ) {
       return setMsg("Add at least one photo before sharing this firing in Explore.");
     }
     const travel = travelDistance.trim() === "" ? null : Number(travelDistance);
@@ -878,7 +1086,7 @@ export default function App() {
       return setMsg("Movement distance must be zero or more.");
     }
     setFiringSaving(true);
-    const r = await sb.rpc("log_firing_v2", {
+    const r = await sb.rpc("log_firing_v3", {
       p_recipe_id: recipe,
       p_fired_at: new Date(`${firingDate}T12:00:00`).toISOString(),
       p_cone: cone,
@@ -891,14 +1099,17 @@ export default function App() {
       p_defects: defects || null,
       p_rating: rating,
       p_notes: firingNotes || null,
+      p_repeat_of_firing_id: repeatOfFiringId || null,
     });
     if (r.error) {
       setFiringSaving(false);
       return setMsg(r.error.message);
     }
     try {
-      if (beforePhoto) await uploadFiringPhoto(r.data, beforePhoto, "before");
-      if (photo) await uploadFiringPhoto(r.data, photo, "after");
+      for (const file of beforePhotos)
+        await uploadFiringPhoto(r.data, file, "before");
+      for (const file of afterPhotos)
+        await uploadFiringPhoto(r.data, file, "after");
     } catch (error: any) {
       setFiringSaving(false);
       await load();
@@ -917,10 +1128,7 @@ export default function App() {
     }
     const wasShared = shareNewFiring;
     setFiringSaving(false);
-    setRecipe("");
-    setBeforePhoto(null);
-    setPhoto(null);
-    setShareNewFiring(false);
+    resetJournalDraft();
     setMsg(wasShared ? "Firing result saved and shared in Explore ✓" : "Firing result saved ✓");
     await load();
   }
@@ -2576,8 +2784,17 @@ export default function App() {
         )}
         {tab === "build" && (
           <>
-            <section className="hero">
-              <h1>Combination Builder</h1>
+            <section className="hero build-hero">
+              <div className="build-heading">
+                <h1>Combination Builder</h1>
+                <button
+                  className="clear-build-button"
+                  type="button"
+                  onClick={clearBuild}
+                >
+                  Clear Build
+                </button>
+              </div>
             </section>
 
             <label className="field-label project-field">
@@ -2887,6 +3104,24 @@ export default function App() {
               <p>Save what happened so every firing makes the next one smarter.</p>
             </section>
             <div className="card stack journal-card">
+              {(journalDraftRestored || draftSavedAt) && (
+                <div className="journal-draft-bar" role="status">
+                  <span>
+                    <strong>
+                      {journalDraftRestored ? "Draft restored" : "Draft autosaved"}
+                    </strong>
+                    {draftSavedAt && <small>Saved at {draftSavedAt}</small>}
+                  </span>
+                  <button type="button" onClick={resetJournalDraft}>
+                    Discard
+                  </button>
+                </div>
+              )}
+              {repeatOfFiringId && (
+                <p className="repeat-firing-note">
+                  Repeating a previous firing — add the new outcome below.
+                </p>
+              )}
               <span className="journal-step">1 · Firing setup</span>
               <label className="field-label">
                 Recipe
@@ -2973,37 +3208,87 @@ export default function App() {
                 Defects or Surprises
                 <input className="input" placeholder="None, pinholes, crawling, crazing…" value={defects} onChange={(e) => setDefects(e.target.value)} />
               </label>
-              <label className="field-label">
-                Result Rating
-                <select className="select" value={rating} onChange={(e) => setRating(+e.target.value)}>
-                  <option value="5">★★★★★ Excellent</option>
-                  <option value="4">★★★★ Very good</option>
-                  <option value="3">★★★ Good</option>
-                  <option value="2">★★ Needs work</option>
-                  <option value="1">★ Poor result</option>
-                </select>
-              </label>
+              <fieldset className="rating-field">
+                <legend>Result Rating</legend>
+                <div
+                  className="rating-picker"
+                  aria-label="Choose a result rating"
+                >
+                  {[1, 2, 3, 4, 5].map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      className={value <= rating ? "is-selected" : ""}
+                      aria-label={`${value} star${value === 1 ? "" : "s"}`}
+                      aria-pressed={value === rating}
+                      onClick={() => setRating(value)}
+                    >
+                      ★
+                    </button>
+                  ))}
+                  <span>{rating ? `${rating}/5` : "Tap to rate"}</span>
+                </div>
+              </fieldset>
               <label className="field-label">
                 Learning Notes
                 <textarea className="textarea" placeholder="What would you repeat or change next time?" value={firingNotes} onChange={(e) => setFiringNotes(e.target.value)} />
               </label>
               <div className="journal-section-divider" />
               <span className="journal-step">3 · Photos</span>
+              <p className="journal-photo-help">
+                Add as many before and after photos as you need. Each photo can
+                be up to 10 MB.
+              </p>
               <div className="journal-two-column photo-input-grid">
                 <label className="field-label file-field">
                   Before Firing
-                  <input className="input" type="file" accept="image/*" onChange={(e) => setBeforePhoto(e.target.files?.[0] ?? null)} />
+                  <input
+                    className="input"
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(e) =>
+                      setBeforePhotos(Array.from(e.target.files || []))
+                    }
+                  />
+                  {beforePhotos.length > 0 && (
+                    <small className="file-count">
+                      {beforePhotos.length} selected
+                    </small>
+                  )}
                 </label>
                 <label className="field-label file-field">
                   After Firing
-                  <input className="input" type="file" accept="image/*" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} />
+                  <input
+                    className="input"
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(e) =>
+                      setAfterPhotos(Array.from(e.target.files || []))
+                    }
+                  />
+                  {afterPhotos.length > 0 && (
+                    <small className="file-count">
+                      {afterPhotos.length} selected
+                    </small>
+                  )}
                 </label>
               </div>
-              <label className={"share-firing-option " + (beforePhoto || photo ? "" : "is-disabled")}>
+              <label
+                className={
+                  "share-firing-option " +
+                  (beforePhotos.length || afterPhotos.length
+                    ? ""
+                    : "is-disabled")
+                }
+              >
                 <input
                   type="checkbox"
                   checked={shareNewFiring}
-                  disabled={!beforePhoto && !photo}
+                  disabled={
+                    beforePhotos.length === 0 && afterPhotos.length === 0
+                  }
                   onChange={(e) => setShareNewFiring(e.target.checked)}
                 />
                 <span>
@@ -3014,7 +3299,7 @@ export default function App() {
                   </small>
                 </span>
               </label>
-              {!beforePhoto && !photo && (
+              {beforePhotos.length === 0 && afterPhotos.length === 0 && (
                 <p className="share-photo-note">Add a before or after photo to make sharing available.</p>
               )}
               <button className="btn primary journal-save" disabled={firingSaving} onClick={fire}>
@@ -3054,6 +3339,28 @@ export default function App() {
                   <button className="btn secondary firing-detail-button" onClick={() => openFiringDetail(f.firing_id)}>
                     View Firing Details <ArrowRight size={16} />
                   </button>
+                  <button
+                    className="btn ghost firing-repeat-button"
+                    onClick={() => repeatFiring(f)}
+                  >
+                    Repeat This Firing
+                  </button>
+                  {Number(f.rating) >= 4 && (
+                    <button
+                      className="btn firing-proven-button"
+                      disabled={
+                        promotingFiringId === f.firing_id ||
+                        Boolean(f.promoted_recipe_id)
+                      }
+                      onClick={() => saveFiringAsRecipe(f)}
+                    >
+                      {f.promoted_recipe_id
+                        ? "Saved as Proven Recipe"
+                        : promotingFiringId === f.firing_id
+                          ? "Saving…"
+                          : "Save as Proven Recipe"}
+                    </button>
+                  )}
                   <button
                     className={"btn firing-share-button " + (f.shared ? "is-shared" : "ghost")}
                     disabled={sharingFiringId === f.firing_id || (!f.shared && Number(f.photo_count) < 1)}

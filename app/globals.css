@@ -444,3 +444,136 @@
   .explore-search-actions{grid-template-columns:1fr 1.4fr}
   .explore-photo-wrap,.explore-photo-placeholder{min-height:190px}
 }
+
+/* Step 12: faster build resets and richer firing journals */
+.build-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.build-heading h1 {
+  margin: 0;
+}
+.clear-build-button {
+  flex: 0 0 auto;
+  border: 1.5px solid #d8d3ca;
+  border-radius: 999px;
+  background: #fff;
+  color: #6650c9;
+  font: inherit;
+  font-weight: 800;
+  padding: 10px 15px;
+}
+.clear-build-button:active {
+  transform: translateY(1px);
+  background: #f3efff;
+}
+.journal-draft-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 14px;
+  border: 1px solid #d8cffc;
+  border-radius: 16px;
+  background: #f4f1ff;
+  color: #173a57;
+}
+.journal-draft-bar span {
+  display: grid;
+  gap: 2px;
+}
+.journal-draft-bar small {
+  color: #6d756f;
+}
+.journal-draft-bar button {
+  border: 0;
+  background: transparent;
+  color: #694fd0;
+  font: inherit;
+  font-weight: 800;
+  padding: 6px;
+}
+.repeat-firing-note,
+.journal-photo-help {
+  margin: 0;
+  color: #6d756f;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+.repeat-firing-note {
+  border-left: 4px solid #0b9298;
+  border-radius: 6px;
+  background: #eaf8f7;
+  padding: 10px 12px;
+  color: #173a57;
+}
+.rating-field {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.rating-field legend {
+  margin-bottom: 8px;
+  color: #173a57;
+  font-weight: 800;
+}
+.rating-picker {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 54px;
+  padding: 8px 12px;
+  border: 1.5px solid #d8d3ca;
+  border-radius: 16px;
+  background: #fff;
+}
+.rating-picker button {
+  border: 0;
+  background: transparent;
+  color: #d8d3ca;
+  font-size: 2rem;
+  line-height: 1;
+  padding: 2px;
+}
+.rating-picker button.is-selected {
+  color: #704fd6;
+}
+.rating-picker span {
+  margin-left: auto;
+  color: #6d756f;
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+.file-count {
+  display: block;
+  margin-top: 6px;
+  color: #0b858c;
+  font-weight: 800;
+}
+.firing-repeat-button,
+.firing-proven-button {
+  min-height: 44px;
+}
+.firing-proven-button {
+  border: 1px solid #b9e4df;
+  background: #e7f8f5;
+  color: #087f87;
+}
+.firing-proven-button:disabled {
+  opacity: 0.65;
+}
+@media (max-width: 520px) {
+  .build-heading {
+    align-items: flex-start;
+  }
+  .clear-build-button {
+    margin-top: 7px;
+    padding: 8px 12px;
+    font-size: 0.82rem;
+  }
+  .rating-picker button {
+    font-size: 1.72rem;
+  }
+}
