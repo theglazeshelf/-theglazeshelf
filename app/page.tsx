@@ -2974,6 +2974,16 @@ export default function App() {
               </div>
             ))}
 
+            <button
+              className="btn secondary"
+              style={{ width: "100%", marginBottom: 8 }}
+              onClick={() => openFinder("all", true)}
+            >
+              {layers.length === 0
+                ? "+ Select Base Glaze"
+                : "+ Add Another Glaze"}
+            </button>
+
             <div className="builder-finder-card">
               <div>
                 <span className="eyebrow">NEED INSPIRATION?</span>
@@ -2989,16 +2999,6 @@ export default function App() {
                 <Search size={18} /> Find Suggestions
               </button>
             </div>
-
-            <button
-              className="btn secondary"
-              style={{ width: "100%", marginBottom: 8 }}
-              onClick={() => openFinder("all", true)}
-            >
-              {layers.length === 0
-                ? "+ Select Base Glaze"
-                : "+ Add Another Glaze"}
-            </button>
 
             <label className="field-label">
               Firing Cone
