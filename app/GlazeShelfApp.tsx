@@ -116,6 +116,8 @@ export default function GlazeShelfApp({
     [glazeDetailLoading, setGlazeDetailLoading] = useState(false),
     [glazeDetailScroll, setGlazeDetailScroll] = useState(0),
     [addingShelfKey, setAddingShelfKey] = useState("");
+  const [materialDetail, setMaterialDetail] = useState<any>(null),
+    [materialDetailScroll, setMaterialDetailScroll] = useState(0);
   const [effectSearch, setEffectSearch] = useState(""),
     [colorSearch, setColorSearch] = useState(""),
     [searchScope, setSearchScope] = useState("all"),
@@ -177,10 +179,10 @@ export default function GlazeShelfApp({
     return value.replace(/\b\w/g, (c) => c.toUpperCase());
   }
   function resultItemId(x: any) {
-    return x.item_id || x.glaze_id || x.clay_id || x.id;
+    return x.item_id || x.glaze_id || x.clay_id || x.material_id || x.id;
   }
   function resultItemType(x: any) {
-    return x.item_type || (x.clay_id ? "clay" : "glaze");
+    return x.item_type || (x.clay_id ? "clay" : x.material_id ? "underglaze" : "glaze");
   }
   function resultKey(x: any) {
     return `${resultItemType(x)}:${resultItemId(x)}`;
@@ -222,7 +224,11 @@ export default function GlazeShelfApp({
     if (mine) return "My Shelf";
     if (isWishlisted(x)) return "Want to Try";
     if (inStudio) return "Studio Shelf";
-    return resultItemType(x) === "clay" ? "All Clay" : "All Glazes";
+    return resultItemType(x) === "clay"
+      ? "All Clay"
+      : resultItemType(x) === "underglaze"
+        ? "All Underglazes"
+        : "All Glazes";
   }
   function updateResultAccess(x: any, destination: "mine" | "studio") {
     const key = resultKey(x);
@@ -295,14 +301,47 @@ export default function GlazeShelfApp({
     const timer = window.setTimeout(() => setMsg(""), 2800);
     return () => window.clearTimeout(timer);
   }, [msg, tab]);
+  function materialManufacturer(material: any) {
+    const joined = material?.manufacturer;
+    if (Array.isArray(joined)) return joined[0]?.name || "";
+    return joined?.name || joined || "";
+  }
+  function displayMaterialSku(value: any) {
+    const sku = String(value || "");
+    return sku.toLowerCase().startsWith("sku not surfaced") ? "" : sku;
+  }
+  function normalizeMaterialInventory(row: any) {
+    const material = row.material || {};
+    return {
+      item_type: "underglaze",
+      item_id: material.id || row.material_id,
+      item_name: material.name || "Underglaze",
+      manufacturer: materialManufacturer(material),
+      sku_or_code: displayMaterialSku(material.sku),
+      cone_min: material.cone_min,
+      cone_max: material.cone_max,
+      firing_range: material.firing_range,
+      finish: material.finish,
+      opacity: material.opacity,
+      status: row.status,
+      quantity: row.quantity,
+      container_size: row.container_size,
+      notes: row.notes,
+      updated_at: row.updated_at,
+    };
+  }
   async function load(preferredStudioId = "") {
-    const [a, b, c, d] = await Promise.all([
+    const [a, b, c, d, materials] = await Promise.all([
       sb.rpc("get_my_shelf_v2"),
       sb.rpc("get_my_recipes_v2"),
       sb.rpc("get_my_studios"),
       sb.rpc("get_my_firings_v2"),
+      sb
+        .from("user_material_inventory")
+        .select("status,quantity,container_size,notes,updated_at,material:materials(id,name,sku,cone_min,cone_max,firing_range,finish,opacity,manufacturer:manufacturers(name))")
+        .eq("user_id", session.user.id),
     ]);
-    setShelf(a.data ?? []);
+    setShelf([...(a.data ?? []), ...(materials.data ?? []).map(normalizeMaterialInventory)]);
     setRecipes(b.data ?? []);
     setFirings(d.data ?? []);
     const studioRows = c.data ?? [];
@@ -323,13 +362,17 @@ export default function GlazeShelfApp({
     setProfileStudio((current) => current || selectedStudioId);
     let studioError: any = null;
     if (selectedStudioId) {
-      const e = await sb.rpc("get_studio_shelf_v2", {
-        p_studio_id: selectedStudioId,
-      });
-      studioError = e.error;
-      setStudioShelf(e.data ?? []);
+      const [e, materialRows] = await Promise.all([
+        sb.rpc("get_studio_shelf_v2", { p_studio_id: selectedStudioId }),
+        sb
+          .from("studio_material_inventory")
+          .select("status,quantity,container_size,notes,updated_at,material:materials(id,name,sku,cone_min,cone_max,firing_range,finish,opacity,manufacturer:manufacturers(name))")
+          .eq("studio_id", selectedStudioId),
+      ]);
+      studioError = e.error || materialRows.error;
+      setStudioShelf([...(e.data ?? []), ...(materialRows.data ?? []).map(normalizeMaterialInventory)]);
     } else setStudioShelf([]);
-    const error = a.error || b.error || c.error || d.error || studioError;
+    const error = a.error || b.error || c.error || d.error || materials.error || studioError;
     if (error) setMsg(error.message);
   }
   async function auth(signup = false) {
@@ -493,7 +536,41 @@ export default function GlazeShelfApp({
   async function search(quick = false) {
     setSearching(true);
     setSearchStarted(true);
-    const r =
+    let r: any;
+    if (kind === "underglaze") {
+      const catalog = await sb
+        .from("materials")
+        .select("id,material_type,collection,sku,name,firing_range,cone_min,cone_max,finish,opacity,movement_behavior,primary_uses,mixable_layerable,food_safe_claim,food_contact_note,source_url,confidence,last_verified,manufacturer:manufacturers(name)")
+        .eq("material_type", "underglaze")
+        .order("name");
+      if (catalog.error) r = catalog;
+      else {
+        const needle = q.trim().toLowerCase();
+        const normalized = (catalog.data ?? []).map((item: any) => ({
+          ...item,
+          item_type: "underglaze",
+          item_id: item.id,
+          material_id: item.id,
+          material_name: item.name,
+          manufacturer: materialManufacturer(item),
+        }));
+        r = {
+          error: null,
+          data: normalized.filter((item: any) => {
+            const text = `${item.name} ${item.manufacturer} ${item.sku || ""} ${item.collection || ""}`.toLowerCase();
+            const scopeMatch =
+              searchScope === "mine"
+                ? isOnMyShelf(item)
+                : searchScope === "studio"
+                  ? isOnStudioShelf(item)
+                  : searchScope === "available"
+                    ? isOnMyShelf(item) || isOnStudioShelf(item)
+                    : true;
+            return (!needle || text.includes(needle)) && scopeMatch;
+          }),
+        };
+      }
+    } else r =
       kind === "glaze"
         ? await sb.rpc("find_glazes", {
             p_query: q.trim() || null,
@@ -555,6 +632,19 @@ export default function GlazeShelfApp({
     setTab("find");
     window.requestAnimationFrame(() => window.scrollTo(0, 0));
   }
+  function openUnderglazeFinder(scope = "all") {
+    setKind("underglaze");
+    setQ("");
+    setEffectSearch("");
+    setColorSearch("");
+    setFinderCone("");
+    setSearchScope(scope);
+    setResults([]);
+    setSearchStarted(false);
+    setMsg("");
+    setTab("find");
+    window.requestAnimationFrame(() => window.scrollTo(0, 0));
+  }
   async function createStudio() {
     const r = await sb.rpc("create_my_studio", {
       p_name: studioName,
@@ -594,8 +684,19 @@ export default function GlazeShelfApp({
     const saveKey = `${resultKey(x)}:studio`;
     if (addingShelfKey) return;
     setAddingShelfKey(saveKey);
+    const itemType = resultItemType(x);
     const r =
-      resultItemType(x) === "glaze"
+      itemType === "underglaze"
+        ? await sb.from("studio_material_inventory").upsert(
+            {
+              studio_id: studio,
+              material_id: resultItemId(x),
+              status: "available",
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "studio_id,material_id" },
+          )
+        : itemType === "glaze"
         ? await sb.rpc("set_studio_glaze", {
             p_studio_id: studio,
             p_glaze_id: x.glaze_id || x.item_id,
@@ -612,12 +713,9 @@ export default function GlazeShelfApp({
     else {
       updateResultAccess(x, "studio");
       setMsg(
-        `Added ${x.glaze_name || x.clay_name || "item"} to Studio Shelf ✓`,
+        `Added ${x.glaze_name || x.clay_name || x.material_name || x.name || "item"} to Studio Shelf ✓`,
       );
-      const refreshed = await sb.rpc("get_studio_shelf_v2", {
-        p_studio_id: studio,
-      });
-      if (!refreshed.error) setStudioShelf(refreshed.data ?? []);
+      await load(studio);
     }
     setAddingShelfKey("");
   }
@@ -626,8 +724,19 @@ export default function GlazeShelfApp({
     const saveKey = `${resultKey(x)}:mine`;
     if (addingShelfKey) return;
     setAddingShelfKey(saveKey);
+    const itemType = resultItemType(x);
     const r =
-      resultItemType(x) === "glaze"
+      itemType === "underglaze"
+        ? await sb.from("user_material_inventory").upsert(
+            {
+              user_id: session.user.id,
+              material_id: resultItemId(x),
+              status: "owned",
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "user_id,material_id" },
+          )
+        : itemType === "glaze"
         ? await sb.rpc("set_my_glaze", {
             p_glaze_id: x.glaze_id || x.item_id,
             p_status: "owned",
@@ -642,7 +751,7 @@ export default function GlazeShelfApp({
     if (r.error) setMsg(r.error.message);
     else {
       updateResultAccess(x, "mine");
-      setMsg(`Added ${x.glaze_name || x.clay_name || "item"} to My Shelf ✓`);
+      setMsg(`Added ${x.glaze_name || x.clay_name || x.material_name || x.name || "item"} to My Shelf ✓`);
       await load();
     }
     setAddingShelfKey("");
@@ -687,7 +796,31 @@ export default function GlazeShelfApp({
     const itemType = resultItemType(inventoryItem);
     const itemId = resultItemId(inventoryItem);
     const r =
-      inventoryLocation === "mine"
+      itemType === "underglaze" && inventoryLocation === "mine"
+        ? await sb
+            .from("user_material_inventory")
+            .update({
+              status: inventoryStatus,
+              quantity,
+              container_size: inventoryContainer.trim() || null,
+              notes: inventoryNotes.trim() || null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("user_id", session.user.id)
+            .eq("material_id", itemId)
+        : itemType === "underglaze"
+          ? await sb
+              .from("studio_material_inventory")
+              .update({
+                status: inventoryStatus,
+                quantity,
+                container_size: inventoryContainer.trim() || null,
+                notes: inventoryNotes.trim() || null,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("studio_id", studio)
+              .eq("material_id", itemId)
+          : inventoryLocation === "mine"
         ? await sb.rpc("update_my_inventory_item", {
             p_item_type: itemType,
             p_item_id: itemId,
@@ -760,6 +893,29 @@ export default function GlazeShelfApp({
       setGlazeDetail(null);
       setMsg(r.error.message);
     } else setGlazeDetail(r.data);
+  }
+  async function openMaterialDetail(x: any) {
+    setMaterialDetailScroll(window.scrollY);
+    setMaterialDetail(x);
+    const r = await sb
+      .from("materials")
+      .select("id,material_type,collection,sku,name,firing_range,cone_min,cone_max,finish,opacity,movement_behavior,primary_uses,mixable_layerable,food_safe_claim,food_contact_note,source_url,confidence,last_verified,manufacturer:manufacturers(name)")
+      .eq("id", resultItemId(x))
+      .single();
+    if (!r.error && r.data) {
+      setMaterialDetail({
+        ...r.data,
+        item_type: "underglaze",
+        item_id: r.data.id,
+        material_id: r.data.id,
+        material_name: r.data.name,
+        manufacturer: materialManufacturer(r.data),
+      });
+    }
+  }
+  function closeMaterialDetail() {
+    setMaterialDetail(null);
+    window.requestAnimationFrame(() => window.scrollTo(0, materialDetailScroll));
   }
   function closeGlazeDetail() {
     setGlazeDetail(null);
@@ -1735,6 +1891,9 @@ export default function GlazeShelfApp({
               <button className="btn primary" onClick={() => openFinder("all")}>
                 + Add Glaze
               </button>
+              <button className="btn secondary" onClick={() => openUnderglazeFinder("all")}>
+                + Add Underglaze
+              </button>
               <button
                 className="btn secondary"
                 onClick={openClayFinder}
@@ -1752,7 +1911,7 @@ export default function GlazeShelfApp({
               <div className="card">
                 <strong>This studio shelf is empty.</strong>
                 <p className="muted">
-                  Add the glazes and clay bodies this studio carries. Once
+                  Add the glazes, underglazes, and clay bodies this studio carries. Once
                   they’re here, the Finder can tell you what combinations are
                   actually available in this studio.
                 </p>
@@ -1775,6 +1934,11 @@ export default function GlazeShelfApp({
                     {x.container_size && <span>{x.container_size}</span>}
                     {x.notes && <p>{x.notes}</p>}
                   </div>
+                )}
+                {x.item_type === "underglaze" && (
+                  <button className="detail-link" onClick={() => openMaterialDetail(x)}>
+                    View Details <ArrowRight size={16} />
+                  </button>
                 )}
                 {canEditStudio && (
                   <button
@@ -1836,6 +2000,12 @@ export default function GlazeShelfApp({
                   </button>
                   <button
                     className="btn shelf-effect-button"
+                    onClick={() => openUnderglazeFinder("all")}
+                  >
+                    <Plus size={18} /> Add Underglazes
+                  </button>
+                  <button
+                    className="btn shelf-effect-button"
                     onClick={() => openFinder("mine")}
                   >
                     <Search size={18} /> Search My Shelf by Effect
@@ -1851,7 +2021,7 @@ export default function GlazeShelfApp({
                       <input
                         id="shelf-query"
                         value={shelfQuery}
-                        placeholder="Glaze, clay, brand, or code"
+                        placeholder="Glaze, underglaze, clay, brand, or code"
                         onChange={(e) => setShelfQuery(e.target.value)}
                       />
                       {shelfQuery && (
@@ -1885,6 +2055,7 @@ export default function GlazeShelfApp({
                         >
                           <option value="all">All materials</option>
                           <option value="glaze">Glazes</option>
+                          <option value="underglaze">Underglazes</option>
                           <option value="clay">Clay</option>
                         </select>
                       </label>
@@ -1945,7 +2116,7 @@ export default function GlazeShelfApp({
                   <div className="card shelf-empty">
                     <strong>Your shelf is ready.</strong>
                     <p className="muted">
-                      Add your first glaze or clay body above.
+                      Add your first glaze, underglaze, or clay body above.
                     </p>
                   </div>
                 )}
@@ -1985,6 +2156,11 @@ export default function GlazeShelfApp({
                     <div className="material-actions">
                       {x.item_type === "glaze" && (
                         <button className="detail-link" onClick={() => openGlazeDetail(x)}>
+                          View Details <ArrowRight size={16} />
+                        </button>
+                      )}
+                      {x.item_type === "underglaze" && (
+                        <button className="detail-link" onClick={() => openMaterialDetail(x)}>
                           View Details <ArrowRight size={16} />
                         </button>
                       )}
@@ -2128,10 +2304,19 @@ export default function GlazeShelfApp({
               </div>
             )}
             <section className="hero finder-hero">
-              <span className="eyebrow">GLAZE DISCOVERY</span>
-              <h1>{kind === "glaze" ? "Find Glazes" : "Find Clay"}</h1>
+              <span className="eyebrow">MATERIAL DISCOVERY</span>
+              <h1>
+                {kind === "glaze"
+                  ? "Find Glazes"
+                  : kind === "underglaze"
+                    ? "Find Underglazes"
+                    : "Find Clay"}
+              </h1>
               {kind === "glaze" && (
                 <p>Quickly find a glaze, or explore by effect.</p>
+              )}
+              {kind === "underglaze" && (
+                <p>Find stable decorative colors for painting and surface design.</p>
               )}
             </section>
             <div className="grid finder-kind-grid">
@@ -2147,6 +2332,19 @@ export default function GlazeShelfApp({
                 }}
               >
                 Glazes
+              </button>
+              <button
+                className={
+                  "btn finder-kind-button " +
+                  (kind === "underglaze" ? "primary" : "ghost")
+                }
+                onClick={() => {
+                  setKind("underglaze");
+                  setResults([]);
+                  setSearchStarted(false);
+                }}
+              >
+                Underglazes
               </button>
               <button
                 className={
@@ -2320,6 +2518,57 @@ export default function GlazeShelfApp({
                   </form>
                 </details>
               </>
+            ) : kind === "underglaze" ? (
+              <form
+                className="quick-glaze-search"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  search(true);
+                }}
+              >
+                <label htmlFor="quick-underglaze-query">Search underglazes</label>
+                <div className="quick-search-row">
+                  <div className="quick-search-input">
+                    <Search size={20} />
+                    <input
+                      id="quick-underglaze-query"
+                      aria-label="Search underglaze name, brand, or code"
+                      placeholder="Underglaze name, brand, or code"
+                      enterKeyHint="search"
+                      value={q}
+                      onChange={(e) => setQ(e.target.value)}
+                    />
+                    {(q || searchStarted) && (
+                      <button className="quick-search-clear" type="button" onClick={clearFinderSearch}>
+                        <span aria-hidden="true">×</span><span>Clear</span>
+                      </button>
+                    )}
+                  </div>
+                  <button className="btn quick-search-button" type="submit">
+                    {searching ? "…" : "Search"}
+                  </button>
+                </div>
+                <label className="quick-scope-control">
+                  <span>Search in</span>
+                  <select
+                    value={searchScope}
+                    aria-label="Choose which underglaze shelf to search"
+                    onChange={(e) => {
+                      setSearchScope(e.target.value);
+                      setResults([]);
+                      setSearchStarted(false);
+                    }}
+                  >
+                    <option value="all">All Underglazes</option>
+                    <option value="available" disabled={!studio}>My + Studio Shelves</option>
+                    <option value="mine">My Shelf</option>
+                    <option value="studio" disabled={!studio}>Studio Shelf</option>
+                  </select>
+                </label>
+                <p className="muted">
+                  Underglazes stay separate from glaze movement and layering predictions.
+                </p>
+              </form>
             ) : (
               <form
                 className="row search-row"
@@ -2351,14 +2600,14 @@ export default function GlazeShelfApp({
                   {results.length} {results.length === 1 ? "match" : "matches"}
                 </strong>
                 <span>
-                  {kind === "glaze"
+                  {kind === "glaze" || kind === "underglaze"
                     ? searchScope === "mine"
                       ? "on My Shelf"
                       : searchScope === "studio"
                         ? "on Studio Shelf"
                         : searchScope === "available"
                           ? "on My + Studio Shelves"
-                        : "in All Glazes"
+                        : kind === "underglaze" ? "in All Underglazes" : "in All Glazes"
                     : "for clay"}
                 </span>
               </div>
@@ -2367,19 +2616,20 @@ export default function GlazeShelfApp({
               <div className="card finder-empty">
                 <strong>No exact matches yet.</strong>
                 <p className="muted">
-                  Try a broader effect such as “fluid,” remove the color, or
-                  search All Glazes.
+                  {kind === "glaze"
+                    ? "Try a broader effect such as “fluid,” remove the color, or search All Glazes."
+                    : "Try a broader name, brand, or product code."}
                 </p>
               </div>
             )}
             {results.map((x) => (
-              <div className="item finder-result" key={x.glaze_id || x.clay_id}>
+              <div className="item finder-result" key={resultKey(x)}>
                 <div className="row result-title">
                   <div>
-                    <strong>{x.glaze_name || x.clay_name}</strong>
+                    <strong>{x.glaze_name || x.clay_name || x.material_name || x.name}</strong>
                     <div className="muted">
                       {x.manufacturer}
-                      {x.sku ? ` • ${x.sku}` : ""}
+                      {displayMaterialSku(x.sku) ? ` • ${displayMaterialSku(x.sku)}` : ""}
                     </div>
                   </div>
                   <span className="location-badge search-access">
@@ -2409,7 +2659,19 @@ export default function GlazeShelfApp({
                     </button>
                   </>
                 )}
-                <div className={kind === "glaze" ? "finder-shelf-actions" : "grid"}>
+                {kind === "underglaze" && (
+                  <>
+                    <div className="result-tags">
+                      <span>Underglaze</span>
+                      {x.opacity && <span>{x.opacity}</span>}
+                      {x.firing_range && <span>{x.firing_range}</span>}
+                    </div>
+                    <button className="detail-link" type="button" onClick={() => openMaterialDetail(x)}>
+                      View underglaze details <ArrowRight size={16} />
+                    </button>
+                  </>
+                )}
+                <div className={kind !== "clay" ? "finder-shelf-actions" : "grid"}>
                   <button
                     className={
                       "btn shelf-state-button " +
@@ -2468,17 +2730,19 @@ export default function GlazeShelfApp({
                         : "+ Studio"}
                   </button>
                 </div>
-                <button
-                  className="btn ghost"
-                  style={{ width: "100%", marginTop: 7 }}
-                  onClick={() =>
-                    kind === "glaze"
-                      ? addShelfGlazeToBuild(x)
-                      : (setClay(x), setAnalysis(null), setTab("build"))
-                  }
-                >
-                  {kind === "glaze" ? "Add to Build" : "Use as Clay"}
-                </button>
+                {kind !== "underglaze" && (
+                  <button
+                    className="btn ghost"
+                    style={{ width: "100%", marginTop: 7 }}
+                    onClick={() =>
+                      kind === "glaze"
+                        ? addShelfGlazeToBuild(x)
+                        : (setClay(x), setAnalysis(null), setTab("build"))
+                    }
+                  >
+                    {kind === "glaze" ? "Add to Build" : "Use as Clay"}
+                  </button>
+                )}
               </div>
             ))}
           </>
@@ -3168,6 +3432,79 @@ export default function GlazeShelfApp({
                 </button>
               </div>
             </section>
+          </div>
+        )}
+        {materialDetail && (
+          <div className="overlay" onClick={closeMaterialDetail}>
+            <div
+              className="glaze-detail-sheet"
+              role="dialog"
+              aria-modal="true"
+              aria-label={`${materialDetail.name || materialDetail.item_name} underglaze details`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="row detail-heading">
+                <div>
+                  <span className="eyebrow">UNDERGLAZE DETAILS</span>
+                  <h2>{materialDetail.name || materialDetail.item_name}</h2>
+                  <p>
+                    {typeof materialDetail.manufacturer === "string"
+                      ? materialDetail.manufacturer
+                      : materialManufacturer(materialDetail)}
+                    {displayMaterialSku(materialDetail.sku || materialDetail.sku_or_code)
+                      ? ` • ${displayMaterialSku(materialDetail.sku || materialDetail.sku_or_code)}`
+                      : ""}
+                  </p>
+                </div>
+                <button className="close" aria-label="Close underglaze details" onClick={closeMaterialDetail}>×</button>
+              </div>
+              <div className="detail-chips">
+                <span>{materialDetail.firing_range || "Range needs review"}</span>
+                <span>{materialDetail.opacity || "Opacity needs review"}</span>
+                <span>Underglaze</span>
+              </div>
+              <section className="detail-section">
+                <span className="eyebrow">USE &amp; APPEARANCE</span>
+                <div className="detail-grid">
+                  <div><span>Finish</span><strong>{materialDetail.finish || "Not yet recorded"}</strong></div>
+                  <div><span>Opacity</span><strong>{materialDetail.opacity || "Not yet recorded"}</strong></div>
+                  <div><span>Mixable / layerable</span><strong>{materialDetail.mixable_layerable || "Not yet recorded"}</strong></div>
+                  <div><span>Movement</span><strong>{materialDetail.movement_behavior || "Stable decorative material"}</strong></div>
+                </div>
+              </section>
+              {materialDetail.primary_uses && (
+                <section className="detail-copy">
+                  <span className="eyebrow">PRIMARY USES</span>
+                  <p>{materialDetail.primary_uses}</p>
+                </section>
+              )}
+              <section className="food-safety-card caution">
+                <div className="food-safety-title">
+                  <ShieldCheck size={23} />
+                  <div><span className="eyebrow">FOOD &amp; DINNERWARE</span><strong>Follow the complete fired-surface guidance</strong></div>
+                </div>
+                {materialDetail.food_safe_claim && <p>{materialDetail.food_safe_claim}</p>}
+                {materialDetail.food_contact_note && <p className="restriction-note">{materialDetail.food_contact_note}</p>}
+              </section>
+              <section className="detail-copy pairing-copy">
+                <span className="eyebrow">BUILDER BOUNDARY</span>
+                <p>Underglazes are tracked as decorative materials and are not included in glaze movement or layering predictions.</p>
+              </section>
+              <div className="detail-verification">
+                <span>{materialDetail.confidence || "Manufacturer source recorded"}</span>
+                {materialDetail.last_verified && <span>Verified {materialDetail.last_verified}</span>}
+              </div>
+              <div className="stack detail-actions">
+                {materialDetail.source_url && (
+                  <a className="btn primary" href={materialDetail.source_url} target="_blank" rel="noreferrer">
+                    View Official Source
+                  </a>
+                )}
+                <button className="btn ghost" onClick={closeMaterialDetail}>
+                  Back to {tab === "find" ? "Finder" : "My Shelf"}
+                </button>
+              </div>
+            </div>
           </div>
         )}
         {glazeDetail && (

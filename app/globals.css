@@ -71,6 +71,9 @@
 .finder-hero h1{margin-top:3px}
 .finder-hero p{margin:4px 0 0}
 .finder-kind-button.ghost{color:var(--purple)}
+.finder-kind-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.finder-kind-grid .finder-kind-button{padding-inline:7px;font-size:.78rem}
+@media (max-width:360px){.finder-kind-grid{grid-template-columns:1fr}.finder-kind-grid .finder-kind-button{font-size:.86rem}}
 .builder-clay-button{width:100%;text-align:left;color:var(--purple);cursor:pointer}
 .builder-clay-button strong{color:var(--ink)}
 .quick-glaze-search{margin:13px 0 10px;padding:15px;border:1px solid #d8d4cb;border-radius:19px;background:#fff;box-shadow:0 10px 25px #17324d0d}
