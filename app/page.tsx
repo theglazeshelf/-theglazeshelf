@@ -2215,6 +2215,11 @@ export default function App() {
                       }}
                     >
                       <option value="all">All Glazes</option>
+                      <option value="available" disabled={!studio}>
+                        {studio
+                          ? "My + Studio Shelves"
+                          : "My + Studio Shelves — connect a studio"}
+                      </option>
                       <option value="mine">My Shelf</option>
                       <option value="studio" disabled={!studio}>
                         {studio ? "Studio Shelf" : "Studio Shelf — connect a studio"}
@@ -2346,6 +2351,8 @@ export default function App() {
                       ? "on My Shelf"
                       : searchScope === "studio"
                         ? "on Studio Shelf"
+                        : searchScope === "available"
+                          ? "on My + Studio Shelves"
                         : "in All Glazes"
                     : "for clay"}
                 </span>
