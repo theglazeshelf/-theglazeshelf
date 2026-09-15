@@ -12,8 +12,6 @@ import {
   ArrowRight,
   ShieldCheck,
   UserRound,
-  Compass,
-  Share2,
 } from "lucide-react";
 import purpleLogo from "./glaze-shelf-purple-horizontal.png";
 const placementOptions = [
@@ -95,28 +93,14 @@ export default function App() {
     [surfaceResult, setSurfaceResult] = useState(""),
     [defects, setDefects] = useState(""),
     [firingNotes, setFiringNotes] = useState(""),
-    [rating, setRating] = useState(0),
-    [beforePhotos, setBeforePhotos] = useState<File[]>([]),
-    [afterPhotos, setAfterPhotos] = useState<File[]>([]),
+    [rating, setRating] = useState(5),
+    [beforePhoto, setBeforePhoto] = useState<File | null>(null),
+    [photo, setPhoto] = useState<File | null>(null),
     [preview, setPreview] = useState(""),
     [firingDetail, setFiringDetail] = useState<any>(null),
     [firingDetailPhotos, setFiringDetailPhotos] = useState<any[]>([]),
     [firingDetailLoading, setFiringDetailLoading] = useState(false),
-    [firingSaving, setFiringSaving] = useState(false),
-    [shareNewFiring, setShareNewFiring] = useState(false),
-    [sharingFiringId, setSharingFiringId] = useState(""),
-    [journalDraftReady, setJournalDraftReady] = useState(false),
-    [journalDraftRestored, setJournalDraftRestored] = useState(false),
-    [draftSavedAt, setDraftSavedAt] = useState(""),
-    [repeatOfFiringId, setRepeatOfFiringId] = useState(""),
-    [promotingFiringId, setPromotingFiringId] = useState("");
-  const [exploreResults, setExploreResults] = useState<any[]>([]),
-    [exploreLoading, setExploreLoading] = useState(false),
-    [exploreStarted, setExploreStarted] = useState(false),
-    [exploreQuery, setExploreQuery] = useState(""),
-    [exploreEffect, setExploreEffect] = useState(""),
-    [exploreCone, setExploreCone] = useState(""),
-    [exploreRating, setExploreRating] = useState("");
+    [firingSaving, setFiringSaving] = useState(false);
   const [glazeDetail, setGlazeDetail] = useState<any>(null),
     [glazeDetailLoading, setGlazeDetailLoading] = useState(false),
     [glazeDetailScroll, setGlazeDetailScroll] = useState(0),
@@ -149,7 +133,11 @@ export default function App() {
     [profilePreview, setProfilePreview] = useState(""),
     [profileDefaultCone, setProfileDefaultCone] = useState("6"),
     [profileStudio, setProfileStudio] = useState(""),
-    [accountSaving, setAccountSaving] = useState(false);
+    [accountSaving, setAccountSaving] = useState(false),
+    [showDeleteAccount, setShowDeleteAccount] = useState(false),
+    [deleteAccountPassword, setDeleteAccountPassword] = useState(""),
+    [deleteAccountConfirmation, setDeleteAccountConfirmation] = useState(""),
+    [deletingAccount, setDeletingAccount] = useState(false);
   function decodeApplication(value: any) {
     const raw = String(value || "overall").toLowerCase();
     if (raw.includes("::")) {
@@ -284,112 +272,12 @@ export default function App() {
     const timer = window.setTimeout(() => setMsg(""), 2800);
     return () => window.clearTimeout(timer);
   }, [msg, tab]);
-  useEffect(() => {
-    if (!session?.user?.id) {
-      setJournalDraftReady(false);
-      return;
-    }
-    const key = `glaze-shelf-journal-draft:${session.user.id}`;
-    try {
-      const saved = window.localStorage.getItem(key);
-      if (saved) {
-        const draft = JSON.parse(saved);
-        setRecipe(draft.recipe || "");
-        setFiringDate(
-          draft.firingDate || new Date().toISOString().slice(0, 10),
-        );
-        setCone(
-          Number(draft.cone || session.user.user_metadata?.default_cone || 6),
-        );
-        setFiringSchedule(draft.firingSchedule || "Standard / medium");
-        setFiringOrientation(draft.firingOrientation || "vertical");
-        setMovement(draft.movement || "");
-        setTravelDistance(draft.travelDistance || "");
-        setColorResult(draft.colorResult || "");
-        setSurfaceResult(draft.surfaceResult || "");
-        setDefects(draft.defects || "");
-        setFiringNotes(draft.firingNotes || "");
-        setRating(Number(draft.rating || 0));
-        setShareNewFiring(Boolean(draft.shareNewFiring));
-        setRepeatOfFiringId(draft.repeatOfFiringId || "");
-        setJournalDraftRestored(true);
-      }
-    } catch {
-      window.localStorage.removeItem(key);
-    }
-    setJournalDraftReady(true);
-  }, [session?.user?.id]);
-  useEffect(() => {
-    if (!journalDraftReady || !session?.user?.id) return;
-    const key = `glaze-shelf-journal-draft:${session.user.id}`;
-    const timer = window.setTimeout(() => {
-      const hasDraft = Boolean(
-        recipe ||
-          movement ||
-          travelDistance ||
-          colorResult ||
-          surfaceResult ||
-          defects ||
-          firingNotes ||
-          rating ||
-          repeatOfFiringId,
-      );
-      if (!hasDraft) {
-        window.localStorage.removeItem(key);
-        setDraftSavedAt("");
-        return;
-      }
-      window.localStorage.setItem(
-        key,
-        JSON.stringify({
-          recipe,
-          firingDate,
-          cone,
-          firingSchedule,
-          firingOrientation,
-          movement,
-          travelDistance,
-          colorResult,
-          surfaceResult,
-          defects,
-          firingNotes,
-          rating,
-          shareNewFiring,
-          repeatOfFiringId,
-        }),
-      );
-      setDraftSavedAt(
-        new Date().toLocaleTimeString([], {
-          hour: "numeric",
-          minute: "2-digit",
-        }),
-      );
-    }, 450);
-    return () => window.clearTimeout(timer);
-  }, [
-    journalDraftReady,
-    session?.user?.id,
-    recipe,
-    firingDate,
-    cone,
-    firingSchedule,
-    firingOrientation,
-    movement,
-    travelDistance,
-    colorResult,
-    surfaceResult,
-    defects,
-    firingNotes,
-    rating,
-    shareNewFiring,
-    repeatOfFiringId,
-  ]);
   async function load(preferredStudioId = "") {
     const [a, b, c, d] = await Promise.all([
       sb.rpc("get_my_shelf_v2"),
       sb.rpc("get_my_recipes_v2"),
       sb.rpc("get_my_studios"),
-      sb.rpc("get_my_firings_v4"),
+      sb.rpc("get_my_firings_v2"),
     ]);
     setShelf(a.data ?? []);
     setRecipes(b.data ?? []);
@@ -515,6 +403,52 @@ export default function App() {
     setAccountPassword("");
     setAccountPasswordConfirm("");
     setMsg("Password updated ✓");
+  }
+  async function removeProfilePhoto() {
+    setAccountSaving(true);
+    const path = `${session.user.id}/avatar`;
+    const removed = await sb.storage.from("profile-photos").remove([path]);
+    if (removed.error) {
+      setAccountSaving(false);
+      return setMsg(removed.error.message);
+    }
+    const updated = await sb.auth.updateUser({
+      data: {
+        ...session.user.user_metadata,
+        avatar_url: "",
+      },
+    });
+    setAccountSaving(false);
+    if (updated.error) return setMsg(updated.error.message);
+    if (profilePreview.startsWith("blob:")) URL.revokeObjectURL(profilePreview);
+    setProfilePhoto(null);
+    setProfilePreview("");
+    setMsg("Profile picture removed ✓");
+  }
+  async function deleteAccount() {
+    if (!deleteAccountPassword)
+      return setMsg("Enter your password to continue.");
+    if (deleteAccountConfirmation.trim() !== "DELETE")
+      return setMsg('Type DELETE exactly to confirm.');
+    setDeletingAccount(true);
+    setMsg("");
+    const verified = await sb.auth.signInWithPassword({
+      email: session.user.email || "",
+      password: deleteAccountPassword,
+    });
+    if (verified.error) {
+      setDeletingAccount(false);
+      return setMsg("That password is not correct. Your account was not deleted.");
+    }
+    const deleted = await sb.functions.invoke("delete-account", {
+      body: { confirmation: "DELETE" },
+    });
+    if (deleted.error) {
+      setDeletingAccount(false);
+      return setMsg("Your account could not be deleted. Please try again.");
+    }
+    await sb.auth.signOut({ scope: "local" });
+    window.location.reload();
   }
   function chooseProfilePhoto(file?: File) {
     if (!file) return;
@@ -944,110 +878,11 @@ export default function App() {
     setSurfaceResult("");
     setDefects("");
     setFiringNotes("");
-    setRating(0);
-    setBeforePhotos([]);
-    setAfterPhotos([]);
-    setShareNewFiring(false);
-    setRepeatOfFiringId("");
+    setRating(5);
+    setBeforePhoto(null);
+    setPhoto(null);
     setTab("journal");
     window.requestAnimationFrame(() => window.scrollTo(0, 0));
-  }
-  function resetJournalDraft() {
-    if (session?.user?.id) {
-      window.localStorage.removeItem(
-        `glaze-shelf-journal-draft:${session.user.id}`,
-      );
-    }
-    setRecipe("");
-    setFiringDate(new Date().toISOString().slice(0, 10));
-    setCone(Number(session?.user?.user_metadata?.default_cone || 6));
-    setFiringSchedule("Standard / medium");
-    setFiringOrientation("vertical");
-    setMovement("");
-    setTravelDistance("");
-    setColorResult("");
-    setSurfaceResult("");
-    setDefects("");
-    setFiringNotes("");
-    setRating(0);
-    setBeforePhotos([]);
-    setAfterPhotos([]);
-    setShareNewFiring(false);
-    setRepeatOfFiringId("");
-    setJournalDraftRestored(false);
-    setDraftSavedAt("");
-  }
-  function repeatFiring(firing: any) {
-    setRecipe(firing.recipe_id || "");
-    setFiringDate(new Date().toISOString().slice(0, 10));
-    if (firing.cone != null) setCone(Number(firing.cone));
-    setFiringSchedule(firing.schedule || "Standard / medium");
-    setFiringOrientation(firing.orientation || "vertical");
-    setMovement("");
-    setTravelDistance("");
-    setColorResult("");
-    setSurfaceResult("");
-    setDefects("");
-    setFiringNotes("");
-    setRating(0);
-    setBeforePhotos([]);
-    setAfterPhotos([]);
-    setShareNewFiring(false);
-    setRepeatOfFiringId(firing.firing_id);
-    setJournalDraftRestored(false);
-    setTab("journal");
-    setMsg("Ready to repeat this firing — record the new result below.");
-    window.requestAnimationFrame(() =>
-      window.scrollTo({ top: 0, behavior: "smooth" }),
-    );
-  }
-  async function saveFiringAsRecipe(firing: any) {
-    if (Number(firing.rating) < 4) {
-      return setMsg(
-        "Only successful 4–5 star firings can become proven recipes.",
-      );
-    }
-    setPromotingFiringId(firing.firing_id);
-    const r = await sb.rpc("save_firing_as_recipe", {
-      p_firing_id: firing.firing_id,
-      p_name: `${firing.recipe_name} · Proven`,
-    });
-    setPromotingFiringId("");
-    if (r.error) return setMsg(r.error.message);
-    setFirings((current) =>
-      current.map((item) =>
-        item.firing_id === firing.firing_id
-          ? { ...item, promoted_recipe_id: r.data }
-          : item,
-      ),
-    );
-    setMsg("Successful firing saved as a proven recipe ✓");
-    await load();
-  }
-  function clearBuild() {
-    const hasContent = Boolean(
-      projectDescription.trim() ||
-        clay ||
-        layers.length ||
-        goal.trim() ||
-        recipeName.trim() ||
-        analysis,
-    );
-    if (hasContent && !window.confirm("Clear this build and start over?"))
-      return;
-    setProjectDescription("");
-    setClay(null);
-    setCone(Number(session?.user?.user_metadata?.default_cone || 6));
-    setOrientation("vertical");
-    setTexture("smooth");
-    setGoal("");
-    setLayers([]);
-    setRecipeName("");
-    setAnalysis(null);
-    setMsg("Build cleared ✓");
-    window.requestAnimationFrame(() =>
-      window.scrollTo({ top: 0, behavior: "smooth" }),
-    );
   }
   async function uploadFiringPhoto(
     firingId: string,
@@ -1073,20 +908,12 @@ export default function App() {
   async function fire() {
     if (!recipe) return setMsg("Choose a recipe.");
     if (!firingDate) return setMsg("Choose the firing date.");
-    if (!rating) return setMsg("Tap a star to rate this firing result.");
-    if (
-      shareNewFiring &&
-      beforePhotos.length === 0 &&
-      afterPhotos.length === 0
-    ) {
-      return setMsg("Add at least one photo before sharing this firing in Explore.");
-    }
     const travel = travelDistance.trim() === "" ? null : Number(travelDistance);
     if (travel != null && (!Number.isFinite(travel) || travel < 0)) {
       return setMsg("Movement distance must be zero or more.");
     }
     setFiringSaving(true);
-    const r = await sb.rpc("log_firing_v3", {
+    const r = await sb.rpc("log_firing_v2", {
       p_recipe_id: recipe,
       p_fired_at: new Date(`${firingDate}T12:00:00`).toISOString(),
       p_cone: cone,
@@ -1099,102 +926,25 @@ export default function App() {
       p_defects: defects || null,
       p_rating: rating,
       p_notes: firingNotes || null,
-      p_repeat_of_firing_id: repeatOfFiringId || null,
     });
     if (r.error) {
       setFiringSaving(false);
       return setMsg(r.error.message);
     }
     try {
-      for (const file of beforePhotos)
-        await uploadFiringPhoto(r.data, file, "before");
-      for (const file of afterPhotos)
-        await uploadFiringPhoto(r.data, file, "after");
+      if (beforePhoto) await uploadFiringPhoto(r.data, beforePhoto, "before");
+      if (photo) await uploadFiringPhoto(r.data, photo, "after");
     } catch (error: any) {
       setFiringSaving(false);
       await load();
       return setMsg(`Firing saved, but a photo could not upload: ${error.message}`);
     }
-    if (shareNewFiring) {
-      const shared = await sb.rpc("set_firing_shared", {
-        p_firing_id: r.data,
-        p_shared: true,
-      });
-      if (shared.error) {
-        setFiringSaving(false);
-        await load();
-        return setMsg(`Firing saved, but it could not be shared: ${shared.error.message}`);
-      }
-    }
-    const wasShared = shareNewFiring;
     setFiringSaving(false);
-    resetJournalDraft();
-    setMsg(wasShared ? "Firing result saved and shared in Explore ✓" : "Firing result saved ✓");
+    setRecipe("");
+    setBeforePhoto(null);
+    setPhoto(null);
+    setMsg("Firing result saved ✓");
     await load();
-  }
-  async function toggleFiringShare(firingId: string, nextShared: boolean, photoCount: number) {
-    if (nextShared && Number(photoCount) < 1) {
-      return setMsg("Add at least one firing photo before sharing in Explore.");
-    }
-    setSharingFiringId(firingId);
-    const r = await sb.rpc("set_firing_shared", {
-      p_firing_id: firingId,
-      p_shared: nextShared,
-    });
-    setSharingFiringId("");
-    if (r.error) return setMsg(r.error.message);
-    setFirings((current) =>
-      current.map((item) =>
-        item.firing_id === firingId ? { ...item, shared: nextShared } : item,
-      ),
-    );
-    setMsg(nextShared ? "Firing shared in Explore ✓" : "Firing removed from Explore ✓");
-    if (exploreStarted) await searchExplore();
-  }
-  async function searchExplore() {
-    setExploreLoading(true);
-    setExploreStarted(true);
-    setMsg("");
-    const r = await sb.rpc("get_explore_firings", {
-      p_query: exploreQuery.trim() || null,
-      p_glaze_id: null,
-      p_clay_id: null,
-      p_effect: exploreEffect || null,
-      p_cone: exploreCone ? Number(exploreCone) : null,
-      p_min_rating: exploreRating ? Number(exploreRating) : null,
-      p_limit: 40,
-    });
-    if (r.error) {
-      setExploreLoading(false);
-      setExploreResults([]);
-      return setMsg(r.error.message);
-    }
-    const signedRows = await Promise.all(
-      (r.data ?? []).map(async (item: any) => {
-        if (!item.primary_photo_path) return item;
-        const signed = await sb.storage
-          .from("firing-photos")
-          .createSignedUrl(item.primary_photo_path, 3600);
-        return { ...item, primaryPhotoUrl: signed.data?.signedUrl || "" };
-      }),
-    );
-    setExploreResults(signedRows);
-    setExploreLoading(false);
-  }
-  function openExplore() {
-    setMsg("");
-    setTab("explore");
-    window.requestAnimationFrame(() => window.scrollTo(0, 0));
-    if (!exploreStarted) void searchExplore();
-  }
-  function clearExplore() {
-    setExploreQuery("");
-    setExploreEffect("");
-    setExploreCone("");
-    setExploreRating("");
-    setExploreResults([]);
-    setExploreStarted(false);
-    setMsg("");
   }
   async function view(id: string) {
     const r = await sb.rpc("get_firing_photos", { p_firing_id: id });
@@ -1704,19 +1454,6 @@ export default function App() {
                   </span>
                   <ArrowRight size={18} />
                 </button>
-                <button
-                  className="quick-action explore"
-                  onClick={openExplore}
-                >
-                  <span className="quick-icon">
-                    <Compass size={21} />
-                  </span>
-                  <span>
-                    <strong>Explore Results</strong>
-                    <small>See real firings shared by potters</small>
-                  </span>
-                  <ArrowRight size={18} />
-                </button>
               </div>
               {currentStudio && studios.length > 1 && (
                 <div className="card">
@@ -1769,9 +1506,21 @@ export default function App() {
                 </div>
                 <div>
                   <strong>Profile picture</strong>
-                  <label className="account-photo-button" htmlFor="profile-photo">
-                    {profilePreview ? "Change photo" : "Add photo"}
-                  </label>
+                  <div className="account-photo-actions">
+                    <label className="account-photo-button" htmlFor="profile-photo">
+                      {profilePreview ? "Change photo" : "Add photo"}
+                    </label>
+                    {profilePreview && (
+                      <button
+                        className="account-photo-remove"
+                        type="button"
+                        onClick={removeProfilePhoto}
+                        disabled={accountSaving}
+                      >
+                        Remove photo
+                      </button>
+                    )}
+                  </div>
                   <input
                     id="profile-photo"
                     className="account-photo-input"
@@ -1885,6 +1634,86 @@ export default function App() {
             >
               <LogOut size={18} /> Sign Out
             </button>
+            <section className="card account-card account-danger-card">
+              <span className="eyebrow">DANGER ZONE</span>
+              <h2>Delete account</h2>
+              <p>
+                Permanently delete your profile, My Shelf, Want to Try list,
+                recipes, firing journal, and uploaded photos. Shared studios
+                with other members will remain available.
+              </p>
+              {!showDeleteAccount ? (
+                <button
+                  className="btn account-delete-button"
+                  onClick={() => {
+                    setMsg("");
+                    setShowDeleteAccount(true);
+                  }}
+                >
+                  Delete My Account
+                </button>
+              ) : (
+                <div className="account-delete-confirmation">
+                  <p className="account-delete-warning">
+                    This cannot be undone. Enter your password and type
+                    <strong> DELETE</strong> to confirm.
+                  </p>
+                  <label className="field-label">
+                    Current Password
+                    <input
+                      className="input"
+                      type="password"
+                      autoComplete="current-password"
+                      placeholder="Your password"
+                      value={deleteAccountPassword}
+                      onChange={(e) => setDeleteAccountPassword(e.target.value)}
+                    />
+                  </label>
+                  <label className="field-label">
+                    Type DELETE
+                    <input
+                      className="input"
+                      autoComplete="off"
+                      spellCheck={false}
+                      placeholder="DELETE"
+                      value={deleteAccountConfirmation}
+                      onChange={(e) =>
+                        setDeleteAccountConfirmation(e.target.value)
+                      }
+                    />
+                  </label>
+                  <div className="account-delete-actions">
+                    <button
+                      className="btn ghost"
+                      type="button"
+                      disabled={deletingAccount}
+                      onClick={() => {
+                        setShowDeleteAccount(false);
+                        setDeleteAccountPassword("");
+                        setDeleteAccountConfirmation("");
+                        setMsg("");
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="btn account-delete-final"
+                      type="button"
+                      disabled={
+                        deletingAccount ||
+                        !deleteAccountPassword ||
+                        deleteAccountConfirmation.trim() !== "DELETE"
+                      }
+                      onClick={deleteAccount}
+                    >
+                      {deletingAccount
+                        ? "Deleting Account…"
+                        : "Permanently Delete Account"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </section>
           </>
         )}
 
@@ -2506,16 +2335,6 @@ export default function App() {
                 </button>
               </form>
             )}
-            {kind === "glaze" && (
-              <button className="explore-entry-card" type="button" onClick={openExplore}>
-                <span className="quick-icon"><Compass size={21} /></span>
-                <span>
-                  <strong>Explore real firing results</strong>
-                  <small>Browse photos and notes shared by other potters</small>
-                </span>
-                <ArrowRight size={18} />
-              </button>
-            )}
             {searchStarted && (
               <div className="results-heading">
                 <strong>
@@ -2652,149 +2471,10 @@ export default function App() {
             ))}
           </>
         )}
-        {tab === "explore" && (
-          <>
-            {msg && (
-              <div className="notice explore-notice" role="status" aria-live="polite">
-                {msg}
-              </div>
-            )}
-            <section className="hero explore-hero">
-              <span className="eyebrow">COMMUNITY FIRINGS</span>
-              <h1>Explore Results</h1>
-              <p>See glaze combinations, photos, and kiln notes that potters chose to share.</p>
-            </section>
-            <form
-              className="card explore-search-card"
-              onSubmit={(e) => {
-                e.preventDefault();
-                searchExplore();
-              }}
-            >
-              <label className="field-label">
-                Glaze or Clay
-                <div className="explore-query-row">
-                  <Search size={20} />
-                  <input
-                    className="input"
-                    placeholder="Search a glaze, clay, or color"
-                    value={exploreQuery}
-                    onChange={(e) => setExploreQuery(e.target.value)}
-                    enterKeyHint="search"
-                  />
-                </div>
-              </label>
-              <div className="explore-filter-grid">
-                <label className="field-label">
-                  Effect
-                  <select className="select" value={exploreEffect} onChange={(e) => setExploreEffect(e.target.value)}>
-                    <option value="">Any effect</option>
-                    {effectOptions.map((effect) => <option key={effect} value={effect}>{effect}</option>)}
-                  </select>
-                </label>
-                <label className="field-label">
-                  Cone
-                  <select className="select" value={exploreCone} onChange={(e) => setExploreCone(e.target.value)}>
-                    <option value="">Any cone</option>
-                    {[5, 6, 7, 8, 9, 10].map((value) => <option key={value} value={value}>Cone {value}</option>)}
-                  </select>
-                </label>
-                <label className="field-label">
-                  Rating
-                  <select className="select" value={exploreRating} onChange={(e) => setExploreRating(e.target.value)}>
-                    <option value="">Any rating</option>
-                    <option value="4">4 stars &amp; up</option>
-                    <option value="5">5 stars</option>
-                  </select>
-                </label>
-              </div>
-              <div className="explore-search-actions">
-                <button className="btn ghost" type="button" onClick={clearExplore}>Clear</button>
-                <button className="btn primary" type="submit">
-                  <Search size={17} />
-                  {exploreLoading ? "Searching…" : "Search Results"}
-                </button>
-              </div>
-            </form>
-            <div className="explore-results-heading">
-              <strong>
-                {exploreLoading
-                  ? "Loading shared firings…"
-                  : exploreResults.length + " shared " + (exploreResults.length === 1 ? "result" : "results")}
-              </strong>
-              <span>Private by default</span>
-            </div>
-            {!exploreLoading && exploreStarted && exploreResults.length === 0 && (
-              <div className="card explore-empty">
-                <Compass size={28} />
-                <strong>No shared firings match yet.</strong>
-                <p className="muted">Clear a filter, or be the first to share a firing result from your Journal.</p>
-                <button className="btn secondary" type="button" onClick={() => setTab("journal")}>Open Firing Journal</button>
-              </div>
-            )}
-            <div className="explore-grid">
-              {exploreResults.map((item) => (
-                <article className="explore-card" key={item.firing_id}>
-                  <div className="explore-photo-wrap">
-                    {item.primaryPhotoUrl ? (
-                      <img src={item.primaryPhotoUrl} alt={(item.recipe_name || "Glaze") + " firing result"} />
-                    ) : (
-                      <div className="explore-photo-placeholder"><Compass size={28} /></div>
-                    )}
-                    {Number(item.photo_count) > 1 && <span className="explore-photo-count">{item.photo_count} photos</span>}
-                  </div>
-                  <div className="explore-card-body">
-                    <div className="row explore-card-heading">
-                      <div>
-                        <strong>{item.recipe_name || "Shared firing"}</strong>
-                        <small>
-                          {item.clay_name || "Clay not listed"}
-                          {item.cone != null ? " · Cone " + item.cone : ""}
-                        </small>
-                      </div>
-                      <span className="explore-rating">{item.rating || "—"}/5</span>
-                    </div>
-                    {Array.isArray(item.layers) && item.layers.length > 0 && (
-                      <div className="explore-layer-list">
-                        {item.layers.map((layer: any, index: number) => (
-                          <span key={(layer.glaze_id || layer.glaze_name || "layer") + index}>
-                            {layer.glaze_name}{layer.coats ? " · " + layer.coats + " coats" : ""}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    <div className="explore-result-chips">
-                      {item.color_result && <span>{item.color_result}</span>}
-                      {item.surface_result && <span>{item.surface_result}</span>}
-                      {item.movement_result && <span>{item.movement_result}</span>}
-                    </div>
-                    {item.notes && <p>{item.notes}</p>}
-                    <button className="btn secondary explore-detail-button" type="button" onClick={() => openFiringDetail(item.firing_id)}>
-                      View Firing Details <ArrowRight size={16} />
-                    </button>
-                  </div>
-                </article>
-              ))}
-            </div>
-            <div className="explore-privacy-note">
-              <ShieldCheck size={21} />
-              <p><strong>Sharing is always optional.</strong> Only firings deliberately shared from the Journal appear here. Account names and emails are not shown.</p>
-            </div>
-          </>
-        )}
         {tab === "build" && (
           <>
-            <section className="hero build-hero">
-              <div className="build-heading">
-                <h1>Combination Builder</h1>
-                <button
-                  className="clear-build-button"
-                  type="button"
-                  onClick={clearBuild}
-                >
-                  Clear Build
-                </button>
-              </div>
+            <section className="hero">
+              <h1>Combination Builder</h1>
             </section>
 
             <label className="field-label project-field">
@@ -2974,16 +2654,6 @@ export default function App() {
               </div>
             ))}
 
-            <button
-              className="btn secondary"
-              style={{ width: "100%", marginBottom: 8 }}
-              onClick={() => openFinder("all", true)}
-            >
-              {layers.length === 0
-                ? "+ Select Base Glaze"
-                : "+ Add Another Glaze"}
-            </button>
-
             <div className="builder-finder-card">
               <div>
                 <span className="eyebrow">NEED INSPIRATION?</span>
@@ -2999,6 +2669,16 @@ export default function App() {
                 <Search size={18} /> Find Suggestions
               </button>
             </div>
+
+            <button
+              className="btn secondary"
+              style={{ width: "100%", marginBottom: 8 }}
+              onClick={() => openFinder("all", true)}
+            >
+              {layers.length === 0
+                ? "+ Select Base Glaze"
+                : "+ Add Another Glaze"}
+            </button>
 
             <label className="field-label">
               Firing Cone
@@ -3104,24 +2784,6 @@ export default function App() {
               <p>Save what happened so every firing makes the next one smarter.</p>
             </section>
             <div className="card stack journal-card">
-              {(journalDraftRestored || draftSavedAt) && (
-                <div className="journal-draft-bar" role="status">
-                  <span>
-                    <strong>
-                      {journalDraftRestored ? "Draft restored" : "Draft autosaved"}
-                    </strong>
-                    {draftSavedAt && <small>Saved at {draftSavedAt}</small>}
-                  </span>
-                  <button type="button" onClick={resetJournalDraft}>
-                    Discard
-                  </button>
-                </div>
-              )}
-              {repeatOfFiringId && (
-                <p className="repeat-firing-note">
-                  Repeating a previous firing — add the new outcome below.
-                </p>
-              )}
               <span className="journal-step">1 · Firing setup</span>
               <label className="field-label">
                 Recipe
@@ -3208,100 +2870,32 @@ export default function App() {
                 Defects or Surprises
                 <input className="input" placeholder="None, pinholes, crawling, crazing…" value={defects} onChange={(e) => setDefects(e.target.value)} />
               </label>
-              <fieldset className="rating-field">
-                <legend>Result Rating</legend>
-                <div
-                  className="rating-picker"
-                  aria-label="Choose a result rating"
-                >
-                  {[1, 2, 3, 4, 5].map((value) => (
-                    <button
-                      key={value}
-                      type="button"
-                      className={value <= rating ? "is-selected" : ""}
-                      aria-label={`${value} star${value === 1 ? "" : "s"}`}
-                      aria-pressed={value === rating}
-                      onClick={() => setRating(value)}
-                    >
-                      ★
-                    </button>
-                  ))}
-                  <span>{rating ? `${rating}/5` : "Tap to rate"}</span>
-                </div>
-              </fieldset>
+              <label className="field-label">
+                Result Rating
+                <select className="select" value={rating} onChange={(e) => setRating(+e.target.value)}>
+                  <option value="5">★★★★★ Excellent</option>
+                  <option value="4">★★★★ Very good</option>
+                  <option value="3">★★★ Good</option>
+                  <option value="2">★★ Needs work</option>
+                  <option value="1">★ Poor result</option>
+                </select>
+              </label>
               <label className="field-label">
                 Learning Notes
                 <textarea className="textarea" placeholder="What would you repeat or change next time?" value={firingNotes} onChange={(e) => setFiringNotes(e.target.value)} />
               </label>
               <div className="journal-section-divider" />
               <span className="journal-step">3 · Photos</span>
-              <p className="journal-photo-help">
-                Add as many before and after photos as you need. Each photo can
-                be up to 10 MB.
-              </p>
               <div className="journal-two-column photo-input-grid">
                 <label className="field-label file-field">
                   Before Firing
-                  <input
-                    className="input"
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={(e) =>
-                      setBeforePhotos(Array.from(e.target.files || []))
-                    }
-                  />
-                  {beforePhotos.length > 0 && (
-                    <small className="file-count">
-                      {beforePhotos.length} selected
-                    </small>
-                  )}
+                  <input className="input" type="file" accept="image/*" onChange={(e) => setBeforePhoto(e.target.files?.[0] ?? null)} />
                 </label>
                 <label className="field-label file-field">
                   After Firing
-                  <input
-                    className="input"
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={(e) =>
-                      setAfterPhotos(Array.from(e.target.files || []))
-                    }
-                  />
-                  {afterPhotos.length > 0 && (
-                    <small className="file-count">
-                      {afterPhotos.length} selected
-                    </small>
-                  )}
+                  <input className="input" type="file" accept="image/*" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} />
                 </label>
               </div>
-              <label
-                className={
-                  "share-firing-option " +
-                  (beforePhotos.length || afterPhotos.length
-                    ? ""
-                    : "is-disabled")
-                }
-              >
-                <input
-                  type="checkbox"
-                  checked={shareNewFiring}
-                  disabled={
-                    beforePhotos.length === 0 && afterPhotos.length === 0
-                  }
-                  onChange={(e) => setShareNewFiring(e.target.checked)}
-                />
-                <span>
-                  <strong>Share this result in Explore</strong>
-                  <small>
-                    Other signed-in potters can see this firing, its recipe details, and photos.
-                    Your name and email stay private.
-                  </small>
-                </span>
-              </label>
-              {beforePhotos.length === 0 && afterPhotos.length === 0 && (
-                <p className="share-photo-note">Add a before or after photo to make sharing available.</p>
-              )}
               <button className="btn primary journal-save" disabled={firingSaving} onClick={fire}>
                 {firingSaving ? "Saving Firing…" : "Save Firing Result"}
               </button>
@@ -3332,51 +2926,11 @@ export default function App() {
                   <span>E{f.evidence_tier} evidence</span>
                   {f.photo_count > 0 && <span>{f.photo_count} {Number(f.photo_count) === 1 ? "photo" : "photos"}</span>}
                   {f.prediction_movement_risk != null && <span>Predicted risk {f.prediction_movement_risk}/10</span>}
-                  {f.shared && <span className="is-shared">Shared in Explore</span>}
                 </div>
                 {f.movement_result && <p>{f.movement_result}</p>}
-                <div className="firing-card-actions">
-                  <button className="btn secondary firing-detail-button" onClick={() => openFiringDetail(f.firing_id)}>
-                    View Firing Details <ArrowRight size={16} />
-                  </button>
-                  <button
-                    className="btn ghost firing-repeat-button"
-                    onClick={() => repeatFiring(f)}
-                  >
-                    Repeat This Firing
-                  </button>
-                  {Number(f.rating) >= 4 && (
-                    <button
-                      className="btn firing-proven-button"
-                      disabled={
-                        promotingFiringId === f.firing_id ||
-                        Boolean(f.promoted_recipe_id)
-                      }
-                      onClick={() => saveFiringAsRecipe(f)}
-                    >
-                      {f.promoted_recipe_id
-                        ? "Saved as Proven Recipe"
-                        : promotingFiringId === f.firing_id
-                          ? "Saving…"
-                          : "Save as Proven Recipe"}
-                    </button>
-                  )}
-                  <button
-                    className={"btn firing-share-button " + (f.shared ? "is-shared" : "ghost")}
-                    disabled={sharingFiringId === f.firing_id || (!f.shared && Number(f.photo_count) < 1)}
-                    title={!f.shared && Number(f.photo_count) < 1 ? "Add a photo before sharing" : ""}
-                    onClick={() => toggleFiringShare(f.firing_id, !f.shared, Number(f.photo_count))}
-                  >
-                    <Share2 size={16} />
-                    {sharingFiringId === f.firing_id
-                      ? "Updating…"
-                      : f.shared
-                        ? "Remove from Explore"
-                        : Number(f.photo_count) < 1
-                          ? "Add photo to share"
-                          : "Share in Explore"}
-                  </button>
-                </div>
+                <button className="btn secondary firing-detail-button" onClick={() => openFiringDetail(f.firing_id)}>
+                  Compare Prediction &amp; Result <ArrowRight size={16} />
+                </button>
               </div>
             ))}
           </>
@@ -3512,9 +3066,7 @@ export default function App() {
                       </div>
                     </section>
                   )}
-                  <button className="btn ghost firing-detail-close" onClick={() => setFiringDetail(null)}>
-                    {tab === "explore" ? "Back to Explore" : "Back to Journal"}
-                  </button>
+                  <button className="btn ghost firing-detail-close" onClick={() => setFiringDetail(null)}>Back to Journal</button>
                 </>
               )}
             </section>
@@ -3888,7 +3440,7 @@ export default function App() {
             </div>
           </div>
         )}
-        {msg && tab !== "find" && tab !== "account" && tab !== "explore" && (
+        {msg && tab !== "find" && tab !== "account" && (
           <div className="notice">{msg}</div>
         )}
         <nav className="bottom">
@@ -3903,9 +3455,7 @@ export default function App() {
               key={t}
               className={
                 "nav " +
-                (tab === t ||
-                  (tab === "explore" && t === "find") ||
-                  (tab === "studio" && t === "shelf")
+                (tab === t || (tab === "studio" && t === "shelf")
                   ? "active"
                   : "")
               }
