@@ -149,7 +149,8 @@ export default function GlazeShelfApp({
     [firingDetail, setFiringDetail] = useState<any>(null),
     [firingDetailPhotos, setFiringDetailPhotos] = useState<any[]>([]),
     [firingDetailLoading, setFiringDetailLoading] = useState(false),
-    [firingSaving, setFiringSaving] = useState(false);
+    [firingSaving, setFiringSaving] = useState(false),
+    [journalFormOpen, setJournalFormOpen] = useState(false);
   const [glazeDetail, setGlazeDetail] = useState<any>(null),
     [glazeDetailLoading, setGlazeDetailLoading] = useState(false),
     [glazeDetailScroll, setGlazeDetailScroll] = useState(0),
@@ -1120,6 +1121,7 @@ export default function GlazeShelfApp({
     setRating(5);
     setBeforePhoto(null);
     setPhoto(null);
+    setJournalFormOpen(true);
     setTab("journal");
     window.requestAnimationFrame(() => window.scrollTo(0, 0));
   }
@@ -1184,6 +1186,7 @@ export default function GlazeShelfApp({
     setRecipe("");
     setBeforePhoto(null);
     setPhoto(null);
+    setJournalFormOpen(false);
     setMsg("Firing result saved ✓");
     await load();
   }
@@ -1518,6 +1521,10 @@ export default function GlazeShelfApp({
                 src={purpleLogo.src}
                 alt="The Glaze Shelf"
               />
+              <section className="home-welcome">
+                <h1>Ready for your next glaze test?</h1>
+                <p>Build it. Fire it. Learn from it.</p>
+              </section>
               <div className="home-account-actions">
                 <button
                   className="home-account"
@@ -1546,10 +1553,6 @@ export default function GlazeShelfApp({
               </div>
             </section>
             <div className="home-aubergine-content">
-              <section className="home-welcome">
-                <h1>Ready for your next glaze test?</h1>
-                <p>Build it. Fire it. Learn from it.</p>
-              </section>
               <div className="home-studio-status">
                 <span>STUDIO</span>
                 <div className="row">
@@ -1663,7 +1666,10 @@ export default function GlazeShelfApp({
                 </button>
                 <button
                   className="quick-action journal"
-                  onClick={() => setTab("journal")}
+                  onClick={() => {
+                    setJournalFormOpen(false);
+                    setTab("journal");
+                  }}
                 >
                   <span className="quick-icon">
                     <NotebookPen size={21} />
@@ -3137,7 +3143,23 @@ export default function GlazeShelfApp({
               <h1>Firing Journal</h1>
               <p>Save what happened so every firing makes the next one smarter.</p>
             </section>
-            <div className="card stack journal-card">
+            <details
+              className="card journal-entry-panel"
+              open={journalFormOpen}
+              onToggle={(event) =>
+                setJournalFormOpen(event.currentTarget.open)
+              }
+            >
+              <summary className="journal-entry-summary">
+                <span>
+                  <strong>Log a New Firing</strong>
+                  <small>Recipe, kiln details, results, and photos</small>
+                </span>
+                <span className="journal-entry-toggle">
+                  {journalFormOpen ? "Close" : "+ Add Firing"}
+                </span>
+              </summary>
+              <div className="stack journal-card journal-form-body">
               <span className="journal-step">1 · Firing setup</span>
               <label className="field-label">
                 Recipe
@@ -3253,7 +3275,8 @@ export default function GlazeShelfApp({
               <button className="btn primary journal-save" disabled={firingSaving} onClick={fire}>
                 {firingSaving ? "Saving Firing…" : "Save Firing Result"}
               </button>
-            </div>
+              </div>
+            </details>
             <div className="journal-history-heading">
               <strong>Firing History</strong>
               <span>{firings.length} saved</span>
@@ -3875,7 +3898,9 @@ export default function GlazeShelfApp({
           onNavigate={(screen) =>
             screen === "find"
               ? openFinder("all")
-              : (setMsg(""), setTab(screen))
+              : (setMsg(""),
+                screen === "journal" && setJournalFormOpen(false),
+                setTab(screen))
           }
         />
       </main>
