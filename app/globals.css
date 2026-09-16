@@ -116,6 +116,7 @@
 .results-heading span{color:var(--muted);font-size:.78rem}
 .finder-empty{border-left:4px solid var(--purple);background:#f8f6ff}
 .finder-result{border-left:4px solid var(--teal)}
+.finder-load-more{display:flex;width:min(100%,360px);margin:18px auto 6px;justify-content:center}
 .result-title{align-items:flex-start}
 .result-tags{display:flex;flex-wrap:wrap;gap:6px;margin:11px 0 8px}
 .result-tags span{padding:5px 8px;border-radius:999px;background:#eef4f2;color:var(--ink);font-size:.72rem;font-weight:750}
