@@ -55,6 +55,44 @@ const colorOptions = [
   "Purple",
   "Clear",
 ];
+const FINDER_PAGE_SIZE = 24;
+
+async function optimizeImageFile(
+  file: File,
+  maxDimension: number,
+  quality = 0.82,
+) {
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) return file;
+  const sourceUrl = URL.createObjectURL(file);
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const element = new Image();
+      element.onload = () => resolve(element);
+      element.onerror = () => reject(new Error('This image could not be prepared for upload.'));
+      element.src = sourceUrl;
+    });
+    const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+    const width = Math.max(1, Math.round(image.naturalWidth * scale));
+    const height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d');
+    if (!context) return file;
+    context.drawImage(image, 0, 0, width, height);
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, 'image/webp', quality),
+    );
+    if (!blob || (scale === 1 && blob.size >= file.size)) return file;
+    const baseName = file.name.replace(/\.[^.]+$/, '') || 'photo';
+    return new File([blob], `${baseName}.webp`, {
+      type: 'image/webp',
+      lastModified: Date.now(),
+    });
+  } finally {
+    URL.revokeObjectURL(sourceUrl);
+  }
+}
 export default function GlazeShelfApp({
   initialScreen,
 }: {
@@ -123,7 +161,9 @@ export default function GlazeShelfApp({
     [searchScope, setSearchScope] = useState("all"),
     [finderCone, setFinderCone] = useState(""),
     [searchStarted, setSearchStarted] = useState(false),
-    [searching, setSearching] = useState(false);
+    [searching, setSearching] = useState(false),
+    [hasMoreResults, setHasMoreResults] = useState(false),
+    [lastSearchQuick, setLastSearchQuick] = useState(false);
   const [showLoginSpin, setShowLoginSpin] = useState(false);
   const [shelfQuery, setShelfQuery] = useState(""),
     [shelfSort, setShelfSort] = useState("name"),
@@ -421,13 +461,21 @@ export default function GlazeShelfApp({
         setAccountSaving(false);
         return setMsg("Choose a profile picture smaller than 5 MB.");
       }
-      const path = `${session.user.id}/avatar`;
+      let optimizedPhoto: File;
+      try {
+        optimizedPhoto = await optimizeImageFile(profilePhoto, 1024, 0.84);
+      } catch (error: any) {
+        setAccountSaving(false);
+        return setMsg(error?.message || "This profile picture could not be prepared.");
+      }
+      const extension = optimizedPhoto.type === "image/webp" ? ".webp" : "";
+      const path = `${session.user.id}/avatar${extension}`;
       const upload = await sb.storage
         .from("profile-photos")
-        .upload(path, profilePhoto, {
+        .upload(path, optimizedPhoto, {
           upsert: true,
-          contentType: profilePhoto.type,
-          cacheControl: "3600",
+          contentType: optimizedPhoto.type,
+          cacheControl: "31536000",
         });
       if (upload.error) {
         setAccountSaving(false);
@@ -435,6 +483,15 @@ export default function GlazeShelfApp({
       }
       const publicPhoto = sb.storage.from("profile-photos").getPublicUrl(path);
       avatarUrl = `${publicPhoto.data.publicUrl}?v=${Date.now()}`;
+      const existing = await sb.storage
+        .from("profile-photos")
+        .list(session.user.id, { limit: 100 });
+      if (!existing.error) {
+        const oldPaths = (existing.data ?? [])
+          .map((item: any) => `${session.user.id}/${item.name}`)
+          .filter((itemPath: string) => itemPath !== path);
+        if (oldPaths.length) await sb.storage.from("profile-photos").remove(oldPaths);
+      }
     }
     const updates: any = {
       data: {
@@ -472,11 +529,22 @@ export default function GlazeShelfApp({
   }
   async function removeProfilePhoto() {
     setAccountSaving(true);
-    const path = `${session.user.id}/avatar`;
-    const removed = await sb.storage.from("profile-photos").remove([path]);
-    if (removed.error) {
+    const existing = await sb.storage
+      .from("profile-photos")
+      .list(session.user.id, { limit: 100 });
+    if (existing.error) {
       setAccountSaving(false);
-      return setMsg(removed.error.message);
+      return setMsg(existing.error.message);
+    }
+    const paths = (existing.data ?? []).map(
+      (item: any) => `${session.user.id}/${item.name}`,
+    );
+    if (paths.length) {
+      const removed = await sb.storage.from("profile-photos").remove(paths);
+      if (removed.error) {
+        setAccountSaving(false);
+        return setMsg(removed.error.message);
+      }
     }
     const updated = await sb.auth.updateUser({
       data: {
@@ -533,65 +601,53 @@ export default function GlazeShelfApp({
     setProfilePreview(URL.createObjectURL(file));
     setMsg("");
   }
-  async function search(quick = false) {
+  async function search(quick = false, append = false) {
     setSearching(true);
     setSearchStarted(true);
+    if (!append) setLastSearchQuick(quick);
+    const effectiveQuick = append ? lastSearchQuick : quick;
+    const offset = append ? results.length : 0;
     let r: any;
     if (kind === "underglaze") {
-      const catalog = await sb
-        .from("materials")
-        .select("id,material_type,collection,sku,name,firing_range,cone_min,cone_max,finish,opacity,movement_behavior,primary_uses,mixable_layerable,food_safe_claim,food_contact_note,source_url,confidence,last_verified,manufacturer:manufacturers(name)")
-        .eq("material_type", "underglaze")
-        .order("name");
-      if (catalog.error) r = catalog;
-      else {
-        const needle = q.trim().toLowerCase();
-        const normalized = (catalog.data ?? []).map((item: any) => ({
-          ...item,
-          item_type: "underglaze",
-          item_id: item.id,
-          material_id: item.id,
-          material_name: item.name,
-          manufacturer: materialManufacturer(item),
-        }));
-        r = {
-          error: null,
-          data: normalized.filter((item: any) => {
-            const text = `${item.name} ${item.manufacturer} ${item.sku || ""} ${item.collection || ""}`.toLowerCase();
-            const scopeMatch =
-              searchScope === "mine"
-                ? isOnMyShelf(item)
-                : searchScope === "studio"
-                  ? isOnStudioShelf(item)
-                  : searchScope === "available"
-                    ? isOnMyShelf(item) || isOnStudioShelf(item)
-                    : true;
-            return (!needle || text.includes(needle)) && scopeMatch;
-          }),
-        };
-      }
+      r = await sb.rpc("search_materials_paged", {
+        p_query: q.trim() || null,
+        p_material_type: "underglaze",
+        p_user_id: session.user.id,
+        p_studio_id: studio || null,
+        p_access: searchScope,
+        p_limit: FINDER_PAGE_SIZE,
+        p_offset: offset,
+      });
     } else r =
       kind === "glaze"
-        ? await sb.rpc("find_glazes", {
+        ? await sb.rpc("find_glazes_paged", {
             p_query: q.trim() || null,
-            p_cone: quick ? null : finderCone ? Number(finderCone) : null,
-            p_color_family: quick ? null : colorSearch || null,
-            p_effect: quick ? null : effectSearch.trim() || null,
+            p_cone: effectiveQuick ? null : finderCone ? Number(finderCone) : null,
+            p_color_family: effectiveQuick ? null : colorSearch || null,
+            p_effect: effectiveQuick ? null : effectSearch.trim() || null,
             p_user_id: session.user.id,
             p_studio_id: studio || null,
             p_access: searchScope,
-            p_limit: 60,
+            p_limit: FINDER_PAGE_SIZE,
+            p_offset: offset,
           })
-        : await sb.rpc("search_clays", {
+        : await sb.rpc("search_clays_paged", {
             p_query: q.trim() || null,
             p_cone: null,
-            p_limit: 40,
+            p_limit: FINDER_PAGE_SIZE,
+            p_offset: offset,
           });
     setSearching(false);
     if (r.error) setMsg(r.error.message);
     else {
       setMsg("");
-      setResults(r.data ?? []);
+      const incoming = r.data ?? [];
+      setHasMoreResults(incoming.length === FINDER_PAGE_SIZE);
+      setResults((current) => {
+        if (!append) return incoming;
+        const seen = new Set(current.map(resultKey));
+        return [...current, ...incoming.filter((item: any) => !seen.has(resultKey(item)))];
+      });
     }
   }
   function openFinder(scope = "all", fromBuilder = false) {
@@ -602,6 +658,7 @@ export default function GlazeShelfApp({
     setSearchScope(scope);
     setFinderCone(fromBuilder ? String(cone) : "");
     setResults([]);
+    setHasMoreResults(false);
     setSearchStarted(false);
     setMsg("");
     setTab("find");
@@ -613,6 +670,7 @@ export default function GlazeShelfApp({
     setColorSearch("");
     setFinderCone("");
     setResults([]);
+    setHasMoreResults(false);
     setSearchStarted(false);
     setMsg("");
     window.requestAnimationFrame(() =>
@@ -627,6 +685,7 @@ export default function GlazeShelfApp({
     setFinderCone("");
     setSearchScope("all");
     setResults([]);
+    setHasMoreResults(false);
     setSearchStarted(false);
     setMsg("");
     setTab("find");
@@ -640,6 +699,7 @@ export default function GlazeShelfApp({
     setFinderCone("");
     setSearchScope(scope);
     setResults([]);
+    setHasMoreResults(false);
     setSearchStarted(false);
     setMsg("");
     setTab("find");
@@ -1071,10 +1131,12 @@ export default function GlazeShelfApp({
     if (file.size > 10 * 1024 * 1024) {
       throw new Error(`${photoType === "before" ? "Before" : "After"} photo must be smaller than 10 MB.`);
     }
-    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const optimizedPhoto = await optimizeImageFile(file, 1800, 0.82);
+    const safeName = optimizedPhoto.name.replace(/[^a-zA-Z0-9._-]/g, "_");
     const path = `${session.user.id}/${firingId}/${photoType}-${Date.now()}-${safeName}`;
-    const up = await sb.storage.from("firing-photos").upload(path, file, {
-      contentType: file.type,
+    const up = await sb.storage.from("firing-photos").upload(path, optimizedPhoto, {
+      contentType: optimizedPhoto.type,
+      cacheControl: "31536000",
     });
     if (up.error) throw up.error;
     const attached = await sb.rpc("attach_firing_photo", {
@@ -2328,6 +2390,7 @@ export default function GlazeShelfApp({
                 onClick={() => {
                   setKind("glaze");
                   setResults([]);
+                  setHasMoreResults(false);
                   setSearchStarted(false);
                 }}
               >
@@ -2341,6 +2404,7 @@ export default function GlazeShelfApp({
                 onClick={() => {
                   setKind("underglaze");
                   setResults([]);
+                  setHasMoreResults(false);
                   setSearchStarted(false);
                 }}
               >
@@ -2354,6 +2418,7 @@ export default function GlazeShelfApp({
                 onClick={() => {
                   setKind("clay");
                   setResults([]);
+                  setHasMoreResults(false);
                   setSearchStarted(false);
                 }}
               >
@@ -2413,6 +2478,7 @@ export default function GlazeShelfApp({
                       onChange={(e) => {
                         setSearchScope(e.target.value);
                         setResults([]);
+                        setHasMoreResults(false);
                         setSearchStarted(false);
                         setMsg("");
                       }}
@@ -2556,6 +2622,7 @@ export default function GlazeShelfApp({
                     onChange={(e) => {
                       setSearchScope(e.target.value);
                       setResults([]);
+                      setHasMoreResults(false);
                       setSearchStarted(false);
                     }}
                   >
@@ -2597,7 +2664,7 @@ export default function GlazeShelfApp({
             {searchStarted && (
               <div className="results-heading">
                 <strong>
-                  {results.length} {results.length === 1 ? "match" : "matches"}
+                  {results.length}{hasMoreResults ? "+" : ""} {results.length === 1 ? "match" : "matches"}
                 </strong>
                 <span>
                   {kind === "glaze" || kind === "underglaze"
@@ -2745,6 +2812,16 @@ export default function GlazeShelfApp({
                 )}
               </div>
             ))}
+            {searchStarted && results.length > 0 && hasMoreResults && (
+              <button
+                className="btn secondary finder-load-more"
+                type="button"
+                disabled={searching}
+                onClick={() => search(lastSearchQuick, true)}
+              >
+                {searching ? "Loading…" : "Load 24 more"}
+              </button>
+            )}
           </>
         )}
         {tab === "build" && (
@@ -2769,6 +2846,7 @@ export default function GlazeShelfApp({
                 setKind("clay");
                 setQ("");
                 setResults([]);
+                setHasMoreResults(false);
                 setTab("find");
               }}
             >
