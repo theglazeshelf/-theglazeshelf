@@ -19,6 +19,7 @@ import {
 import purpleLogo from "../app/glaze-shelf-purple-horizontal.png";
 import homeLogo from "../app/glaze-shelf-teal-purple-tagline.png";
 import homeBowl from "../app/home-pottery-bowl.png";
+import homeGlazeFlow from "../app/home-glaze-flow.png";
 const placementOptions = [
   "overall",
   "top half",
@@ -1554,7 +1555,7 @@ export default function GlazeShelfApp({
                 <p>Build it. Fire it. Learn from it.</p>
               </div>
               <img className="home-pottery-bowl" src={homeBowl.src} alt="" aria-hidden="true" />
-              <div className="home-wave" aria-hidden="true" />
+              <img className="home-glaze-flow" src={homeGlazeFlow.src} alt="" aria-hidden="true" />
             </section>
 
             <section className="home-finder-feature">
