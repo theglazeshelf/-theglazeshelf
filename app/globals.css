@@ -18,6 +18,7 @@
 .shelf-hero h1{margin-top:3px}
 .shelf-add-button{width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:linear-gradient(135deg,var(--teal),#0b9098);color:#fff;box-shadow:0 10px 24px #087a8326}
 .shelf-add-button span{display:flex;align-items:center;gap:8px}
+.studio-shelf-link{width:100%;display:flex;align-items:center;justify-content:space-between;padding:13px 16px;background:linear-gradient(135deg,#e5f5f4,#f0edff);color:var(--teal);border:1px solid #c7e7e5;box-shadow:0 6px 16px #087a8312}.studio-shelf-link span{display:flex;align-items:center;gap:8px}
 .shelf-tip{margin:11px 3px 12px;color:var(--muted);font-size:.88rem}
 .material-card-button{display:block;width:100%;text-align:left;color:var(--ink);font:inherit;cursor:pointer;transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease}
 .material-card-button:active{transform:scale(.985)}
