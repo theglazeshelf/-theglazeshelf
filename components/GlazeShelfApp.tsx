@@ -1396,6 +1396,7 @@ export default function GlazeShelfApp({
   if (recovery)
     return (
       <main className="simple-auth-shell">
+        <img className="auth-glaze-flow" src={homeGlazeFlow.src} alt="" aria-hidden="true" />
         <section className="simple-auth-wrap">
           <img
             className="simple-auth-logo"
@@ -1447,6 +1448,7 @@ export default function GlazeShelfApp({
   if (!session)
     return (
       <main className="simple-auth-shell">
+        <img className="auth-glaze-flow" src={homeGlazeFlow.src} alt="" aria-hidden="true" />
         <section className="simple-auth-wrap">
           <img
             className="simple-auth-logo"
