@@ -4,9 +4,6 @@ import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import {
   Search,
-  Library,
-  Layers,
-  NotebookPen,
   LogOut,
   Plus,
   ArrowRight,
@@ -20,6 +17,8 @@ import {
   type AppScreen,
 } from "@/lib/app-routes";
 import purpleLogo from "../app/glaze-shelf-purple-horizontal.png";
+import homeLogo from "../app/glaze-shelf-teal-purple-tagline.png";
+import homeBowl from "../app/home-pottery-bowl.png";
 const placementOptions = [
   "overall",
   "top half",
@@ -150,7 +149,8 @@ export default function GlazeShelfApp({
     [firingDetailPhotos, setFiringDetailPhotos] = useState<any[]>([]),
     [firingDetailLoading, setFiringDetailLoading] = useState(false),
     [firingSaving, setFiringSaving] = useState(false),
-    [journalFormOpen, setJournalFormOpen] = useState(false);
+    [journalFormOpen, setJournalFormOpen] = useState(false),
+    [homeStudioManagerOpen, setHomeStudioManagerOpen] = useState(false);
   const [glazeDetail, setGlazeDetail] = useState<any>(null),
     [glazeDetailLoading, setGlazeDetailLoading] = useState(false),
     [glazeDetailScroll, setGlazeDetailScroll] = useState(0),
@@ -717,6 +717,7 @@ export default function GlazeShelfApp({
       setStudioName("");
       setMsg("Studio created ✓");
       await load(r.data);
+      setHomeStudioManagerOpen(false);
     }
   }
   async function joinStudio() {
@@ -726,6 +727,7 @@ export default function GlazeShelfApp({
       setJoin("");
       setMsg("Studio joined ✓");
       await load(r.data);
+      setHomeStudioManagerOpen(false);
     }
   }
   async function openStudio(id: string) {
@@ -734,6 +736,18 @@ export default function GlazeShelfApp({
     const r = await sb.rpc("get_studio_shelf_v2", { p_studio_id: id });
     if (r.error) setMsg(r.error.message);
     else setStudioShelf(r.data ?? []);
+  }
+  async function chooseHomeStudio(id: string) {
+    setStudio(id);
+    setProfileStudio(id);
+    setHomeStudioManagerOpen(false);
+    await sb.auth.updateUser({
+      data: {
+        ...session.user.user_metadata,
+        preferred_studio_id: id,
+      },
+    });
+    await load(id);
   }
   async function invite(id: string) {
     const r = await sb.rpc("regenerate_studio_join_code", { p_studio_id: id });
@@ -1515,200 +1529,132 @@ export default function GlazeShelfApp({
         />
         {tab === "home" && (
           <>
-            <section className="home-dashboard-hero">
-              <img
-                className="home-final-logo"
-                src={purpleLogo.src}
-                alt="The Glaze Shelf"
-              />
-              <section className="home-welcome">
-                <h1>Ready for your next glaze test?</h1>
+            <header className="home-brand-header">
+              <img className="home-brand-logo" src={homeLogo.src} alt="The Glaze Shelf — your pottery workspace" />
+              <button
+                className="home-account"
+                aria-label="Account settings"
+                onClick={() => {
+                  setMsg("");
+                  setTab("account");
+                }}
+              >
+                {session.user.user_metadata?.avatar_url ? (
+                  <img src={session.user.user_metadata.avatar_url} alt="" />
+                ) : (
+                  <UserRound size={22} />
+                )}
+              </button>
+            </header>
+
+            <section className="home-layered-welcome">
+              <div className="home-welcome-copy">
+                <span>WELCOME BACK</span>
+                <h1>What are you making next?</h1>
                 <p>Build it. Fire it. Learn from it.</p>
-              </section>
-              <div className="home-account-actions">
+              </div>
+              <img className="home-pottery-bowl" src={homeBowl.src} alt="" aria-hidden="true" />
+              <div className="home-wave" aria-hidden="true" />
+            </section>
+
+            <section className="home-finder-feature">
+              <h2>Find the right glaze for your vision.</h2>
+              <p>Search by name, color, movement, finish, or what is already on your shelf.</p>
+              <button onClick={() => openFinder("all")}>
+                Start Finding <ArrowRight size={19} />
+              </button>
+            </section>
+
+            <section className="home-current-studio">
+              <button
+                className="home-studio-main"
+                type="button"
+                disabled={!currentStudio}
+                onClick={() => currentStudio && openStudio(currentStudio.studio_id)}
+              >
+                <span>WORKING AT</span>
+                <strong>{currentStudio?.name || "No studio connected yet"}</strong>
+              </button>
+              <button
+                className="home-studio-change"
+                type="button"
+                onClick={() => setHomeStudioManagerOpen(true)}
+              >
+                {currentStudio ? "Change" : "Set Up"}
+              </button>
+            </section>
+
+            <section className="home-continue">
+              <div className="home-continue-heading">
+                <h2>Continue where you left off</h2>
                 <button
-                  className="home-account"
-                  aria-label="Account settings"
-                  onClick={() => {
-                    setMsg("");
-                    setTab("account");
-                  }}
+                  type="button"
+                  onClick={() => recipes[0] ? openRecipe(recipes[0].recipe_id) : setTab("build")}
                 >
-                  {session.user.user_metadata?.avatar_url ? (
-                    <img
-                      src={session.user.user_metadata.avatar_url}
-                      alt=""
-                    />
-                  ) : (
-                    <UserRound size={20} />
-                  )}
-                </button>
-                <button
-                  className="home-signout"
-                  aria-label="Sign out"
-                  onClick={() => sb.auth.signOut()}
-                >
-                  <LogOut size={20} />
+                  {recipes[0] ? "Open" : "Start"}
                 </button>
               </div>
+              <button
+                className="home-recipe-card"
+                type="button"
+                onClick={() => recipes[0] ? openRecipe(recipes[0].recipe_id) : setTab("build")}
+              >
+                <span className="home-recipe-swatch" aria-hidden="true" />
+                <span>
+                  <strong>{recipes[0]?.name || "Build your first combination"}</strong>
+                  <small>
+                    {recipes[0]
+                      ? `Saved combination · Cone ${recipes[0].cone}`
+                      : "Choose your clay and glaze layers"}
+                  </small>
+                </span>
+                <ArrowRight size={18} />
+              </button>
             </section>
-            <div className="home-aubergine-content">
-              <div className="home-studio-status">
-                <span>STUDIO</span>
-                <div className="row">
-                  <strong>
-                    {currentStudio?.name || "No studio connected yet"}
-                  </strong>
-                  {currentStudio && (
+
+            {homeStudioManagerOpen && (
+              <div className="overlay home-studio-overlay" onClick={() => setHomeStudioManagerOpen(false)}>
+                <section className="home-studio-sheet" onClick={(event) => event.stopPropagation()}>
+                  <div className="row">
+                    <div>
+                      <span className="eyebrow">YOUR STUDIO</span>
+                      <h2>Choose or add a studio</h2>
+                    </div>
+                    <button className="close" aria-label="Close studio choices" onClick={() => setHomeStudioManagerOpen(false)}>×</button>
+                  </div>
+                  {studios.map((item) => (
                     <button
-                      className="home-studio-open"
-                      onClick={() => openStudio(currentStudio.studio_id)}
+                      className={"studio-list-item " + (item.studio_id === currentStudio?.studio_id ? "selected" : "")}
+                      key={item.studio_id}
+                      onClick={() => chooseHomeStudio(item.studio_id)}
                     >
-                      Open Shelf <ArrowRight size={16} />
+                      <span>
+                        <strong>{item.name}</strong>
+                        <small>{item.role === "owner" ? "You created this studio" : "Member"}</small>
+                      </span>
+                      <span>{item.studio_id === currentStudio?.studio_id ? "Current" : "Choose →"}</span>
+                    </button>
+                  ))}
+                  {currentStudio?.role === "owner" && (
+                    <button className="btn ghost" onClick={() => invite(currentStudio.studio_id)}>
+                      Invite Someone to {currentStudio.name}
                     </button>
                   )}
-                </div>
-              </div>
-              <details className="card studio-tools compact-studio-tools home-studio-add">
-                <summary>
-                  {currentStudio
-                    ? "+ Create or Join Another Studio"
-                    : "+ Create or Join a Studio"}
-                </summary>
-                <div className="stack studio-form">
-                  {currentStudio?.role === "owner" && (
-                    <>
-                      <button
-                        className="btn ghost"
-                        onClick={() => invite(currentStudio.studio_id)}
-                      >
-                        Invite Someone to {currentStudio.name}
-                      </button>
-                      <div className="studio-divider">
-                        <span>or add another</span>
-                      </div>
-                    </>
-                  )}
+                  <div className="studio-divider"><span>add another studio</span></div>
                   <label className="field-label">
                     Studio Name
-                    <input
-                      className="input"
-                      placeholder="e.g., My Studio"
-                      value={studioName}
-                      onChange={(e) => setStudioName(e.target.value)}
-                    />
+                    <input className="input" placeholder="e.g., My Studio" value={studioName} onChange={(e) => setStudioName(e.target.value)} />
                   </label>
-                  <button className="btn secondary" onClick={createStudio}>
-                    Create Studio
-                  </button>
-                  <div className="studio-divider">
-                    <span>or</span>
-                  </div>
+                  <button className="btn secondary" onClick={createStudio}>Create Studio</button>
+                  <div className="studio-divider"><span>or join one</span></div>
                   <label className="field-label">
                     Invite Code
-                    <input
-                      className="input"
-                      placeholder="Enter invite code"
-                      value={join}
-                      onChange={(e) => setJoin(e.target.value)}
-                    />
+                    <input className="input" placeholder="Enter invite code" value={join} onChange={(e) => setJoin(e.target.value)} />
                   </label>
-                  <button className="btn ghost" onClick={joinStudio}>
-                    Join Studio
-                  </button>
-                </div>
-              </details>
-              <div className="quick-action-grid">
-                <button
-                  className="quick-action build"
-                  onClick={() => setTab("build")}
-                >
-                  <span className="quick-icon">
-                    <Layers size={21} />
-                  </span>
-                  <span>
-                    <strong>Build a Combination</strong>
-                    <small>Layer glazes and plan your piece</small>
-                  </span>
-                  <ArrowRight size={18} />
-                </button>
-                <button
-                  className="quick-action find"
-                  onClick={() => openFinder("all")}
-                >
-                  <span className="quick-icon">
-                    <Search size={21} />
-                  </span>
-                  <span>
-                    <strong>Find by Effect</strong>
-                    <small>Search color, movement, and finish</small>
-                  </span>
-                  <ArrowRight size={18} />
-                </button>
-                <button
-                  className="quick-action shelf"
-                  onClick={() => {
-                    setShelfView("materials");
-                    setTab("shelf");
-                  }}
-                >
-                  <span className="quick-icon">
-                    <Library size={21} />
-                  </span>
-                  <span>
-                    <strong>Open My Shelf</strong>
-                    <small>
-                      {myGlazeCount} {myGlazeCount === 1 ? "glaze" : "glazes"}{" "}
-                      saved
-                    </small>
-                  </span>
-                  <ArrowRight size={18} />
-                </button>
-                <button
-                  className="quick-action journal"
-                  onClick={() => {
-                    setJournalFormOpen(false);
-                    setTab("journal");
-                  }}
-                >
-                  <span className="quick-icon">
-                    <NotebookPen size={21} />
-                  </span>
-                  <span>
-                    <strong>Firing Journal</strong>
-                    <small>
-                      {firings.length}{" "}
-                      {firings.length === 1 ? "firing" : "firings"} recorded
-                    </small>
-                  </span>
-                  <ArrowRight size={18} />
-                </button>
+                  <button className="btn ghost" onClick={joinStudio}>Join Studio</button>
+                </section>
               </div>
-              {currentStudio && studios.length > 1 && (
-                <div className="card">
-                  <strong>Your Other Studios</strong>
-                  {studios
-                    .filter((s) => s.studio_id !== currentStudio.studio_id)
-                    .map((s) => (
-                      <button
-                        className="studio-list-item"
-                        key={s.studio_id}
-                        onClick={() => setStudio(s.studio_id)}
-                      >
-                        <span>
-                          <strong>{s.name}</strong>
-                          <small>
-                            {s.role === "owner"
-                              ? "You created this studio"
-                              : "Member"}
-                          </small>
-                        </span>
-                        <span>Choose →</span>
-                      </button>
-                    ))}
-                </div>
-              )}
-            </div>
+            )}
           </>
         )}
 
