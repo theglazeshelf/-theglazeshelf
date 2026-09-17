@@ -16,6 +16,7 @@
 .card,.item{box-shadow:0 8px 22px #17324d0a}
 .shelf-hero{padding-bottom:10px}
 .shelf-hero h1{margin-top:3px}
+.shelf-hero p{margin:5px 0 0;font-weight:650;line-height:1.35}
 .shelf-add-button{width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:linear-gradient(135deg,var(--teal),#0b9098);color:#fff;box-shadow:0 10px 24px #087a8326}
 .shelf-add-button span{display:flex;align-items:center;gap:8px}
 .studio-shelf-link{width:100%;display:flex;align-items:center;justify-content:space-between;padding:13px 16px;background:linear-gradient(135deg,#e5f5f4,#f0edff);color:var(--teal);border:1px solid #c7e7e5;box-shadow:0 6px 16px #087a8312}.studio-shelf-link span{display:flex;align-items:center;gap:8px}
@@ -423,6 +424,12 @@
 .journal-hero{padding-bottom:8px}
 .journal-hero h1{margin:4px 0 5px}
 .journal-hero p{margin:0;font-size:.86rem;font-weight:650;line-height:1.4}
+
+/* Keep every signed-in page header on the same eyebrow/title/description rhythm. */
+.shell:not(.home-shell) .hero{padding-top:22px;padding-bottom:64px}
+.shell:not(.home-shell) .hero .eyebrow{margin:0 0 8px}
+.shell:not(.home-shell) .hero h1{margin:0 0 8px;line-height:1.08}
+.shell:not(.home-shell) .hero p{margin:0;line-height:1.35}
 .journal-entry-panel{padding:0;overflow:hidden;border-color:#6450c83b;background:linear-gradient(145deg,#fff,#f8f6ff)}
 .journal-entry-panel>summary{list-style:none}
 .journal-entry-panel>summary::-webkit-details-marker{display:none}
