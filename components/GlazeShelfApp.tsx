@@ -1948,6 +1948,13 @@ export default function GlazeShelfApp({
                 </p>
               </div>
             )}
+            {studioShelf.length > 0 && (
+              <details className="material-list-details">
+                <summary>
+                  <span>Studio materials</span>
+                  <span>{studioShelf.length} {studioShelf.length === 1 ? "material" : "materials"}</span>
+                </summary>
+                <div className="material-list-scroll">
             {studioShelf.map((x) => (
               <div className="item" key={x.item_type + x.item_id}>
                 <div className="row">
@@ -1981,6 +1988,9 @@ export default function GlazeShelfApp({
                 )}
               </div>
             ))}
+                </div>
+              </details>
+            )}
             <button
               className="btn ghost"
               style={{ width: "100%", marginTop: 12 }}
@@ -2159,6 +2169,12 @@ export default function GlazeShelfApp({
                     </button>
                   </div>
                 )}
+                <details className="material-list-details">
+                  <summary>
+                    <span>My shelf materials</span>
+                    <span>{visibleShelfMaterials.length} {visibleShelfMaterials.length === 1 ? "material" : "materials"}</span>
+                  </summary>
+                  <div className="material-list-scroll">
                 {visibleShelfMaterials.map((x) => (
                   <div className="item material-card" key={x.item_type + x.item_id}>
                     <div className="row material-card-heading">
@@ -2208,6 +2224,8 @@ export default function GlazeShelfApp({
                     </div>
                   </div>
                 ))}
+                  </div>
+                </details>
               </>
             )}
             {shelfView === "wishlist" && (
@@ -3870,4 +3888,3 @@ export default function GlazeShelfApp({
     </>
   );
 }
-
