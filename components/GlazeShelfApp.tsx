@@ -1403,6 +1403,7 @@ export default function GlazeShelfApp({
             src={purpleLogo.src}
             alt="The Glaze Shelf"
           />
+          <div className="simple-auth-card">
           <h1>Create a new password</h1>
           <p className="simple-auth-help">
             Choose a password with at least 8 characters.
@@ -1442,6 +1443,7 @@ export default function GlazeShelfApp({
             </button>
             {msg && <div className="notice">{msg}</div>}
           </div>
+          </div>
         </section>
       </main>
     );
@@ -1455,6 +1457,7 @@ export default function GlazeShelfApp({
             src={purpleLogo.src}
             alt="The Glaze Shelf"
           />
+          <div className="simple-auth-card">
           <h1>Sign in</h1>
           <form
             className="stack simple-auth-form"
@@ -1507,6 +1510,7 @@ export default function GlazeShelfApp({
             </button>
             {msg && <div className="notice">{msg}</div>}
           </form>
+          </div>
         </section>
       </main>
     );
@@ -1515,9 +1519,7 @@ export default function GlazeShelfApp({
       {showLoginSpin && (
         <div className="pottery-login-intro" aria-hidden="true">
           <div className="pottery-wheel-ring">
-            <div className="pottery-wheel-cup">
-              <img src={purpleLogo.src} alt="" />
-            </div>
+            <div className="pottery-wheel-cup" aria-hidden="true" />
           </div>
         </div>
       )}
