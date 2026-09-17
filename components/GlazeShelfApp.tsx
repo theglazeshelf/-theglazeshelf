@@ -9,6 +9,7 @@ import {
   ArrowRight,
   ShieldCheck,
   UserRound,
+  MapPin,
 } from "lucide-react";
 import { AppHeader, BottomNavigation } from "./AppNavigation";
 import {
@@ -1570,6 +1571,9 @@ export default function GlazeShelfApp({
             </div>
 
             <section className="home-current-studio">
+              <span className="home-studio-pin" aria-hidden="true">
+                <MapPin size={25} strokeWidth={2.5} />
+              </span>
               <button
                 className="home-studio-main"
                 type="button"
