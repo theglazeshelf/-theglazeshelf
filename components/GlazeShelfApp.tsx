@@ -2039,6 +2039,17 @@ export default function GlazeShelfApp({
                     </span>
                     <ArrowRight size={18} />
                   </button>
+                  {currentStudio && (
+                    <button
+                      className="btn studio-shelf-link"
+                      onClick={() => openStudio(currentStudio.studio_id)}
+                    >
+                      <span>
+                        <Layers size={18} /> Open {currentStudio.name} Shelf
+                      </span>
+                      <ArrowRight size={18} />
+                    </button>
+                  )}
                   <button
                     className="btn shelf-effect-button"
                     onClick={() => openUnderglazeFinder("all")}
@@ -2814,7 +2825,9 @@ export default function GlazeShelfApp({
         {tab === "build" && (
           <>
             <section className="hero">
+              <span className="eyebrow">YOUR VISION</span>
               <h1>Combination Builder</h1>
+              <p className="builder-description">Build, layer, analyze your glaze combination.</p>
             </section>
 
             <label className="field-label project-field">
