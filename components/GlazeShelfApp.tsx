@@ -1548,23 +1548,26 @@ export default function GlazeShelfApp({
               </button>
             </header>
 
-            <section className="home-layered-welcome">
-              <div className="home-welcome-copy">
-                <span>WELCOME BACK</span>
-                <h1>What are you making next?</h1>
-                <p>Build it. Fire it. Learn from it.</p>
-              </div>
-              <img className="home-pottery-bowl" src={homeBowl.src} alt="" aria-hidden="true" />
-              <img className="home-glaze-flow" src={homeGlazeFlow.src} alt="" aria-hidden="true" />
-            </section>
+            <div className="home-glaze-stage">
+              <section className="home-layered-welcome">
+                <div className="home-welcome-copy">
+                  <span>WELCOME BACK</span>
+                  <h1>What are you making next?</h1>
+                  <p>Build it. Fire it. Learn from it.</p>
+                </div>
+                <img className="home-pottery-bowl" src={homeBowl.src} alt="" aria-hidden="true" />
+              </section>
 
-            <section className="home-finder-feature">
-              <h2>Find the right glaze for your vision.</h2>
-              <p>Search by name, color, movement, finish, or what is already on your shelf.</p>
-              <button onClick={() => openFinder("all")}>
-                Start Finding <ArrowRight size={19} />
-              </button>
-            </section>
+              <img className="home-glaze-flow" src={homeGlazeFlow.src} alt="" aria-hidden="true" />
+
+              <section className="home-finder-feature">
+                <h2>Find the right glaze for your vision.</h2>
+                <p>Search by name, color, movement, finish, or what is already on your shelf.</p>
+                <button onClick={() => openFinder("all")}>
+                  Start Finding <ArrowRight size={19} />
+                </button>
+              </section>
+            </div>
 
             <section className="home-current-studio">
               <button
