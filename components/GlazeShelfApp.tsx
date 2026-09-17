@@ -1635,7 +1635,7 @@ export default function GlazeShelfApp({
                 <section className="home-studio-sheet" onClick={(event) => event.stopPropagation()}>
                   <div className="row">
                     <div>
-                      <span className="eyebrow">YOUR STUDIO</span>
+                      <span className="eyebrow">MY STUDIO</span>
                       <h2>Choose or add a studio</h2>
                     </div>
                     <button className="close" aria-label="Close studio choices" onClick={() => setHomeStudioManagerOpen(false)}>×</button>
@@ -1913,6 +1913,7 @@ export default function GlazeShelfApp({
         {tab === "studio" && (
           <>
             <section className="hero">
+              <span className="eyebrow">MY STUDIO</span>
               <h1>
                 {studios.find((s) => s.studio_id === studio)?.name ||
                   "Studio Shelf"}
@@ -2007,6 +2008,7 @@ export default function GlazeShelfApp({
             <section className="hero shelf-hero">
               <span className="eyebrow">YOUR COLLECTION</span>
               <h1>My Shelf</h1>
+              <p>Know what you have. Discover what works.</p>
             </section>
             <div className="segmented shelf-segmented">
               <button
