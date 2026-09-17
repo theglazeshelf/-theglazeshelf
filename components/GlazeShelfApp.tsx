@@ -1529,6 +1529,15 @@ export default function GlazeShelfApp({
           }}
           onSignOut={() => sb.auth.signOut()}
         />
+        {tab !== "home" && (
+          <img
+            className={`page-glaze-flow page-glaze-flow-${tab}`}
+            src={homeGlazeFlow.src}
+            alt=""
+            aria-hidden="true"
+          />
+        )}
+
         {tab === "home" && (
           <>
             <header className="home-brand-header">
@@ -3861,3 +3870,4 @@ export default function GlazeShelfApp({
     </>
   );
 }
+
