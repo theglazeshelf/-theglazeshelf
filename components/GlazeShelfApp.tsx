@@ -18,7 +18,6 @@ import {
   screenForPath,
   type AppScreen,
 } from "@/lib/app-routes";
-import purpleLogo from "../app/glaze-shelf-purple-horizontal.png";
 import homeLogo from "../app/glaze-shelf-teal-purple-tagline.png";
 import homeBowl from "../app/home-pottery-bowl.png";
 import homeGlazeFlow from "../app/home-glaze-flow.png";
@@ -1400,7 +1399,7 @@ export default function GlazeShelfApp({
         <section className="simple-auth-wrap">
           <img
             className="simple-auth-logo"
-            src={purpleLogo.src}
+            src={homeLogo.src}
             alt="The Glaze Shelf"
           />
           <div className="simple-auth-card">
@@ -1454,7 +1453,7 @@ export default function GlazeShelfApp({
         <section className="simple-auth-wrap">
           <img
             className="simple-auth-logo"
-            src={purpleLogo.src}
+            src={homeLogo.src}
             alt="The Glaze Shelf"
           />
           <div className="simple-auth-card">
@@ -1519,7 +1518,9 @@ export default function GlazeShelfApp({
       {showLoginSpin && (
         <div className="pottery-login-intro" aria-hidden="true">
           <div className="pottery-wheel-ring">
-            <div className="pottery-wheel-cup" aria-hidden="true" />
+            <div className="pottery-wheel-cup" aria-hidden="true">
+              <img src={homeLogo.src} alt="" />
+            </div>
           </div>
         </div>
       )}
