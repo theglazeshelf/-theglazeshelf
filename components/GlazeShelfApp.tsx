@@ -2436,6 +2436,14 @@ export default function GlazeShelfApp({
         )}
         {tab === "find" && (
           <>
+            <div className="explore-toggle">
+              <button type="button" className="active" onClick={() => setTab("find")}>
+                <Search size={16} /> Find Glazes
+              </button>
+              <button type="button" onClick={openExplore}>
+                <Compass size={16} /> Explore Shared
+              </button>
+            </div>
             {msg && (
               <div
                 className="notice finder-notice"
@@ -2906,6 +2914,14 @@ export default function GlazeShelfApp({
         )}
         {tab === "explore" && (
           <>
+            <div className="explore-toggle">
+              <button type="button" onClick={() => setTab("find")}>
+                <Search size={16} /> Find Glazes
+              </button>
+              <button type="button" className="active" onClick={openExplore}>
+                <Compass size={16} /> Explore Shared
+              </button>
+            </div>
             {msg && (
               <div className="notice explore-notice" role="status" aria-live="polite">
                 {msg}
@@ -2961,11 +2977,11 @@ export default function GlazeShelfApp({
                 </label>
               </div>
               <div className="explore-search-actions">
-                <button className="btn ghost" type="button" onClick={clearExplore}>Clear</button>
                 <button className="btn primary" type="submit">
                   <Search size={17} />
                   {exploreLoading ? "Searching…" : "Search Results"}
                 </button>
+                <button className="btn ghost" type="button" onClick={clearExplore}>Clear</button>
               </div>
             </form>
             <div className="explore-results-heading">
