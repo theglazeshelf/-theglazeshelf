@@ -5,6 +5,7 @@ export type AppScreen =
   | "find"
   | "build"
   | "journal"
+  | "explore"
   | "account";
 
 const screenPaths: Record<AppScreen, string> = {
@@ -14,6 +15,7 @@ const screenPaths: Record<AppScreen, string> = {
   find: "/find",
   build: "/build",
   journal: "/journal",
+  explore: "/explore",
   account: "/profile",
 };
 
