@@ -1477,7 +1477,6 @@ export default function GlazeShelfApp({
             alt="The Glaze Shelf"
           />
           <div className="simple-auth-card">
-          <img className="auth-glaze-flow-over" src={homeGlazeFlow.src} alt="" aria-hidden="true" />
           <h1>Create a new password</h1>
           <p className="simple-auth-help">
             Choose a password with at least 8 characters.
@@ -1532,7 +1531,6 @@ export default function GlazeShelfApp({
             alt="The Glaze Shelf"
           />
           <div className="simple-auth-card">
-          <img className="auth-glaze-flow-over" src={homeGlazeFlow.src} alt="" aria-hidden="true" />
           <h1>Sign in</h1>
           <form
             className="stack simple-auth-form"
