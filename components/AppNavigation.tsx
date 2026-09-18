@@ -6,6 +6,7 @@ import {
   Library,
   Layers,
   NotebookPen,
+  Compass,
   LogOut,
   UserRound,
 } from "lucide-react";
@@ -56,6 +57,7 @@ const items = [
   ["find", Search, "Find"],
   ["build", Layers, "Build"],
   ["journal", NotebookPen, "Journal"],
+  ["explore", Compass, "Explore"],
 ] as const;
 
 export function BottomNavigation({
