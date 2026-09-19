@@ -23,6 +23,7 @@ import {
 import homeLogo from "../app/glaze-shelf-teal-purple-tagline.png";
 import homeBowl from "../app/home-pottery-bowl.png";
 import homeGlazeFlow from "../app/home-glaze-flow.png";
+import spinnerCup from "../app/glaze-cup-logo-teal-purple.png";
 const placementOptions = [
   "overall",
   "top half",
@@ -1593,7 +1594,7 @@ export default function GlazeShelfApp({
         <div className="pottery-login-intro" aria-hidden="true">
           <div className="pottery-wheel-ring">
             <div className="pottery-wheel-cup" aria-hidden="true">
-              <img src={homeLogo.src} alt="" />
+              <img src={spinnerCup.src} alt="" />
             </div>
           </div>
         </div>
