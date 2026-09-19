@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import {
@@ -326,10 +327,6 @@ export default function GlazeShelfApp({
     const routeScreen = screenForPath(pathname);
     setTabState(routeScreen);
   }, [pathname]);
-  useEffect(() => {
-    if (!firingDetail) return;
-    window.scrollTo({ top: 0, behavior: "auto" });
-  }, [firingDetail]);
   useEffect(() => {
     setFiringDetail(null);
   }, [tab]);
@@ -3560,7 +3557,7 @@ export default function GlazeShelfApp({
             ))}
           </>
         )}
-        {firingDetail && (
+        {firingDetail && typeof document !== "undefined" && createPortal(
           <div className="overlay firing-detail-overlay" onClick={() => setFiringDetail(null)}>
             <section
               className="firing-detail-sheet"
@@ -3695,7 +3692,8 @@ export default function GlazeShelfApp({
                 </>
               )}
             </section>
-          </div>
+          </div>,
+          document.body,
         )}
         {inventoryItem && (
           <div className="overlay inventory-overlay" onClick={() => setInventoryItem(null)}>
