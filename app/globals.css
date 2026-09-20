@@ -268,6 +268,16 @@
 .account-photo-remove{border:0;padding:6px 2px;background:transparent;color:#9d3831;font-size:.75rem;font-weight:800;cursor:pointer}
 .account-photo-remove:disabled{cursor:wait;opacity:.55}
 .account-photo-input{display:none}
+.crop-sheet{width:min(420px,100%);border-radius:24px;padding:22px 20px calc(24px + env(safe-area-inset-bottom));background:#fff;box-shadow:0 -14px 42px #17324d30;text-align:center}
+.crop-sheet h2{margin:0 0 4px;font-size:1.3rem}
+.crop-sheet p{margin:0 0 6px}
+.crop-viewport{position:relative;width:280px;height:280px;margin:16px auto;border-radius:50%;overflow:hidden;background:#111;touch-action:none;cursor:grab}
+.crop-viewport:active{cursor:grabbing}
+.crop-viewport img{position:absolute;left:50%;top:50%;max-width:none;user-select:none;pointer-events:none}
+.crop-zoom-label{align-items:center;margin:6px 0 4px}
+.crop-zoom-label input[type="range"]{width:100%;accent-color:var(--purple)}
+.crop-actions{display:flex;gap:10px;margin-top:14px}
+.crop-actions .btn{flex:1}
 .account-fields{gap:11px}
 .account-preference-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin:8px 0 16px}
 .account-pending{margin:0;padding:9px 10px;border-radius:10px;background:#fff7d9;color:#755c17;font-size:.76rem;font-weight:750;line-height:1.4}
