@@ -2496,14 +2496,6 @@ export default function GlazeShelfApp({
         )}
         {tab === "find" && (
           <>
-            <div className="explore-toggle">
-              <button type="button" className="active" onClick={() => setTab("find")}>
-                <Search size={16} /> Find Glazes
-              </button>
-              <button type="button" onClick={openExplore}>
-                <Compass size={16} /> Explore Shared
-              </button>
-            </div>
             {msg && (
               <div
                 className="notice finder-notice"
@@ -2974,14 +2966,6 @@ export default function GlazeShelfApp({
         )}
         {tab === "explore" && (
           <>
-            <div className="explore-toggle">
-              <button type="button" onClick={() => setTab("find")}>
-                <Search size={16} /> Find Glazes
-              </button>
-              <button type="button" className="active" onClick={openExplore}>
-                <Compass size={16} /> Explore Shared
-              </button>
-            </div>
             {msg && (
               <div className="notice explore-notice" role="status" aria-live="polite">
                 {msg}
@@ -3474,6 +3458,9 @@ export default function GlazeShelfApp({
               <h1>Firing Journal</h1>
               <p>Save what happened so every firing makes the next one smarter.</p>
             </section>
+            <button className="btn explore-firings-button" onClick={openExplore}>
+              <Compass size={18} /> Explore Shared Firings
+            </button>
             <details
               className="card journal-entry-panel"
               open={journalFormOpen}
