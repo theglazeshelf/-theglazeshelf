@@ -3338,7 +3338,7 @@ export default function GlazeShelfApp({
                   <option value="">Start fresh, or choose a recipe…</option>
                   {recipes.map((r) => (
                     <option key={r.recipe_id} value={r.recipe_id}>
-                      {r.recipe_name?.trim() || "Untitled recipe"}
+                      {r.name?.trim() || "Untitled recipe"}
                     </option>
                   ))}
                 </select>
