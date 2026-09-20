@@ -1099,9 +1099,9 @@ export default function GlazeShelfApp({
     if (r.error) setMsg(r.error.message);
     else setRecipeDetail(r.data ?? []);
   }
-  function editRecipe() {
-    if (!recipeDetail.length) return;
-    const first = recipeDetail[0];
+  function applyRecipeToBuilder(detailRows: any[]) {
+    if (!detailRows.length) return;
+    const first = detailRows[0];
     setClay(
       first.clay_id
         ? { clay_id: first.clay_id, clay_name: first.clay_name }
@@ -1123,7 +1123,7 @@ export default function GlazeShelfApp({
     setGoal(first.goal || "");
     setRecipeName(first.recipe_name || "");
     setLayers(
-      recipeDetail.map((x) => {
+      detailRows.map((x) => {
         const application = decodeApplication(x.placement);
         return {
           glaze_id: x.glaze_id,
@@ -1139,7 +1139,18 @@ export default function GlazeShelfApp({
     );
     setAnalysis(null);
     setRecipeDetail([]);
+  }
+  function editRecipe() {
+    applyRecipeToBuilder(recipeDetail);
     setTab("build");
+  }
+  async function loadRecipeIntoBuilder(id: string) {
+    if (!id) return;
+    const r = await sb.rpc("get_recipe_detail_v2", { p_recipe_id: id });
+    if (r.error) return setMsg(r.error.message);
+    applyRecipeToBuilder(r.data ?? []);
+    setMsg("Recipe loaded into Builder ✓");
+    window.requestAnimationFrame(() => window.scrollTo(0, 0));
   }
   function startFiring(id: string, recipeCone: any) {
     setRecipe(id);
@@ -3091,6 +3102,24 @@ export default function GlazeShelfApp({
               <strong>Clay:</strong> {clay?.clay_name || "Select clay"}
             </button>
 
+            {recipes.length > 0 && (
+              <label className="field-label">
+                Load a Saved Recipe
+                <select
+                  className="select"
+                  value=""
+                  onChange={(e) => loadRecipeIntoBuilder(e.target.value)}
+                >
+                  <option value="">Start fresh, or choose a recipe…</option>
+                  {recipes.map((r) => (
+                    <option key={r.recipe_id} value={r.recipe_id}>
+                      {r.recipe_name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+
             <div className="builder-context-grid">
               <label className="field-label">
                 Project Orientation
@@ -3127,6 +3156,16 @@ export default function GlazeShelfApp({
                 </select>
               </label>
             </div>
+
+            <button
+              className="btn secondary"
+              style={{ width: "100%", marginBottom: 8 }}
+              onClick={() => openFinder("all", true)}
+            >
+              {layers.length === 0
+                ? "+ Select Base Glaze"
+                : "+ Add Another Glaze"}
+            </button>
 
             {layers.map((x, i) => (
               <div className="item" key={i}>
@@ -3261,16 +3300,6 @@ export default function GlazeShelfApp({
                 <Search size={18} /> Find Suggestions
               </button>
             </div>
-
-            <button
-              className="btn secondary"
-              style={{ width: "100%", marginBottom: 8 }}
-              onClick={() => openFinder("all", true)}
-            >
-              {layers.length === 0
-                ? "+ Select Base Glaze"
-                : "+ Add Another Glaze"}
-            </button>
 
             <label className="field-label">
               Firing Cone
