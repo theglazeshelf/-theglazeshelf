@@ -3310,40 +3310,24 @@ export default function GlazeShelfApp({
               </button>
             </div>
 
-            <div className="builder-context-grid">
-              <label className="field-label">
-                Glaze Firing Cone
-                <select
-                  className="select"
-                  value={cone}
-                  onChange={(e) => {
-                    setCone(+e.target.value);
-                    setAnalysis(null);
-                  }}
-                >
-                  <option value="5">Cone 5</option>
-                  <option value="6">Cone 6</option>
-                  <option value="7">Cone 7</option>
-                  <option value="8">Cone 8</option>
-                  <option value="9">Cone 9</option>
-                  <option value="10">Cone 10</option>
-                </select>
-              </label>
-              <label className="field-label">
-                Bisque Firing Cone
-                <select
-                  className="select"
-                  value={bisqueCone}
-                  onChange={(e) => setBisqueCone(e.target.value)}
-                >
-                  <option value="010">Cone 010</option>
-                  <option value="08">Cone 08</option>
-                  <option value="06">Cone 06</option>
-                  <option value="05">Cone 05</option>
-                  <option value="04">Cone 04</option>
-                </select>
-              </label>
-            </div>
+            <label className="field-label">
+              Firing Cone
+              <select
+                className="select"
+                value={cone}
+                onChange={(e) => {
+                  setCone(+e.target.value);
+                  setAnalysis(null);
+                }}
+              >
+                <option value="5">Cone 5</option>
+                <option value="6">Cone 6</option>
+                <option value="7">Cone 7</option>
+                <option value="8">Cone 8</option>
+                <option value="9">Cone 9</option>
+                <option value="10">Cone 10</option>
+              </select>
+            </label>
 
             <textarea
               className="textarea"
@@ -3479,16 +3463,6 @@ export default function GlazeShelfApp({
                   <input className="input" type="date" value={firingDate} onChange={(e) => setFiringDate(e.target.value)} />
                 </label>
                 <label className="field-label">
-                  Firing Cone
-                  <select className="select" value={cone} onChange={(e) => setCone(+e.target.value)}>
-                    {[5, 6, 7, 8, 9, 10].map((value) => (
-                      <option key={value} value={value}>Cone {value}</option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              <div className="journal-two-column">
-                <label className="field-label">
                   Kiln Schedule
                   <select className="select" value={firingSchedule} onChange={(e) => setFiringSchedule(e.target.value)}>
                     <option>Standard / medium</option>
@@ -3498,15 +3472,35 @@ export default function GlazeShelfApp({
                     <option>Custom / programmed</option>
                   </select>
                 </label>
+              </div>
+              <div className="journal-two-column">
                 <label className="field-label">
-                  Project Orientation
-                  <select className="select" value={firingOrientation} onChange={(e) => setFiringOrientation(e.target.value)}>
-                    <option value="vertical">Vertical</option>
-                    <option value="horizontal">Horizontal</option>
-                    <option value="sculptural">Sculptural / mixed</option>
+                  Glaze Firing Cone
+                  <select className="select" value={cone} onChange={(e) => setCone(+e.target.value)}>
+                    {[5, 6, 7, 8, 9, 10].map((value) => (
+                      <option key={value} value={value}>Cone {value}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="field-label">
+                  Bisque Firing Cone
+                  <select className="select" value={bisqueCone} onChange={(e) => setBisqueCone(e.target.value)}>
+                    <option value="010">Cone 010</option>
+                    <option value="08">Cone 08</option>
+                    <option value="06">Cone 06</option>
+                    <option value="05">Cone 05</option>
+                    <option value="04">Cone 04</option>
                   </select>
                 </label>
               </div>
+              <label className="field-label">
+                Project Orientation
+                <select className="select" value={firingOrientation} onChange={(e) => setFiringOrientation(e.target.value)}>
+                  <option value="vertical">Vertical</option>
+                  <option value="horizontal">Horizontal</option>
+                  <option value="sculptural">Sculptural / mixed</option>
+                </select>
+              </label>
               <div className="journal-section-divider" />
               <span className="journal-step">2 · What happened</span>
               <label className="field-label">
