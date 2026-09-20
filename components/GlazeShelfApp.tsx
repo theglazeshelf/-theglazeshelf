@@ -1037,7 +1037,7 @@ export default function GlazeShelfApp({
       setAnalysis(r.data?.[0]);
     }
   }
-  async function saveRecipe() {
+  async function saveRecipe(andFire?: boolean) {
     const name =
       recipeName.trim() ||
       layers.map((x) => x.glaze_name).join(" + ") ||
@@ -1064,14 +1064,19 @@ export default function GlazeShelfApp({
       p_prediction_compatibility: analysis?.compatibility || null,
       p_prediction_clay_influence: analysis?.clay_influence || null,
     });
-    if (r.error) setMsg(r.error.message);
-    else {
-      setRecipeName("");
-      setMsg("Recipe saved ✓");
-      await load();
-      setShelfView("recipes");
-      setTab("shelf");
+    if (r.error) return setMsg(r.error.message);
+    const newRecipeId =
+      typeof r.data === "string" ? r.data : r.data?.[0]?.id || r.data?.id || "";
+    setRecipeName("");
+    await load();
+    if (andFire && newRecipeId) {
+      setMsg("Recipe saved ✓ — log your firing below");
+      startFiring(newRecipeId, cone);
+      return;
     }
+    setMsg("Recipe saved ✓");
+    setShelfView("recipes");
+    setTab("shelf");
   }
   async function deleteRecipe(id: string, name: string) {
     if (
@@ -3356,9 +3361,14 @@ export default function GlazeShelfApp({
                   value={recipeName}
                   onChange={(e) => setRecipeName(e.target.value)}
                 />
-                <button className="btn secondary" onClick={saveRecipe}>
-                  Save Recipe
-                </button>
+                <div className="analysis-actions">
+                  <button className="btn secondary" onClick={() => saveRecipe(false)}>
+                    Save Recipe
+                  </button>
+                  <button className="btn primary" onClick={() => saveRecipe(true)}>
+                    Save &amp; Log a Firing
+                  </button>
+                </div>
               </div>
             )}
           </>
