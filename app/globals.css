@@ -147,6 +147,8 @@
 .analysis-warnings li+li{margin-top:5px}
 .analysis-rationale{margin:11px 2px 5px;color:var(--ink);font-size:.8rem;line-height:1.45}
 .analysis-confidence{margin:0 2px 10px;color:var(--muted);font-size:.7rem;font-weight:700}
+.analysis-actions{display:flex;flex-direction:column;gap:8px;margin-top:9px}
+.analysis-actions .btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%}
 @media (max-width:420px){.builder-finder-card{align-items:stretch;flex-direction:column}.filter-grid,.builder-context-grid{grid-template-columns:1fr}.scope-tabs button{font-size:.68rem}}
 
 /* Elevated login and home dashboard */
