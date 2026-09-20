@@ -555,4 +555,14 @@ details.firing-card[open] .firing-card-summary{margin-bottom:4px}
 .firing-photo-grid img{display:block;width:100%;aspect-ratio:1/1;object-fit:cover}
 .firing-photo-grid figcaption{padding:7px;color:var(--muted);font-size:.7rem;font-weight:850;text-align:center}
 .firing-detail-close{width:100%;margin-top:7px}
+.firing-comments-section{margin:18px 0}
+.firing-comment{padding:11px 0;border-bottom:1px solid #17324d12}
+.firing-comment-heading{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.firing-comment-heading strong{font-size:.86rem}
+.firing-comment-heading span{color:var(--muted);font-size:.68rem;font-weight:700}
+.firing-comment p{margin:5px 0 0;color:var(--ink);font-size:.84rem;line-height:1.4}
+.firing-comment-delete{border:0;background:transparent;padding:5px 0 0;color:#9d3831;font-size:.72rem;font-weight:800;cursor:pointer}
+.firing-comment-form{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.firing-comment-form .textarea{min-height:60px}
+.firing-comment-form .btn{align-self:flex-end}
 @media (max-width:410px){.journal-two-column{grid-template-columns:1fr}.saved-prediction-grid{grid-template-columns:1fr}.comparison-grid{grid-template-columns:58px 1fr 1fr}.comparison-grid>div{padding:8px 6px}.firing-layer-row{grid-template-columns:28px 1fr}.firing-layer-row>div:last-child{grid-column:2;text-align:left}}
