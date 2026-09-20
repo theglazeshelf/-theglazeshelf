@@ -127,6 +127,10 @@
 .shelf-state-button.studio-added{border-color:#087a8333;background:var(--teal-soft);color:var(--teal)}
 .detail-link{display:flex;align-items:center;gap:5px;margin:0 0 11px;padding:2px 0;border:0;background:transparent;color:var(--purple);font-size:.8rem;font-weight:850}
 .builder-finder-card{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:10px 0;padding:15px;border:1px solid #6450c832;border-radius:18px;background:linear-gradient(135deg,#f6f2ff,#edf8f6)}
+.recipe-editing-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:10px 0;padding:15px;border:1px solid var(--purple);border-radius:18px;background:var(--purple-soft)}
+.recipe-editing-banner strong{display:block;margin-top:3px;font-size:1rem;color:var(--ink)}
+.recipe-editing-actions{display:flex;gap:8px;flex:0 0 auto}
+.recipe-editing-actions .btn{white-space:nowrap}
 .builder-finder-card>div{min-width:0}
 .builder-finder-card strong{display:block;margin:4px 0;font-size:1rem}
 .builder-finder-card p{margin:0;color:var(--muted);font-size:.78rem;line-height:1.35}
