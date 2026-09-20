@@ -128,6 +128,7 @@ export default function GlazeShelfApp({
     [analysis, setAnalysis] = useState<any>(null),
     [recipes, setRecipes] = useState<any[]>([]),
     [recipeName, setRecipeName] = useState(""),
+    [editingRecipeId, setEditingRecipeId] = useState(""),
     [recipeDetail, setRecipeDetail] = useState<any[]>([]),
     [shelfView, setShelfView] = useState("materials"),
     [studios, setStudios] = useState<any[]>([]),
@@ -1072,6 +1073,7 @@ export default function GlazeShelfApp({
     const newRecipeId =
       typeof r.data === "string" ? r.data : r.data?.[0]?.id || r.data?.id || "";
     setRecipeName("");
+    setEditingRecipeId("");
     await load();
     if (andFire && newRecipeId) {
       setMsg("Recipe saved ✓ — log your firing below");
@@ -1081,6 +1083,35 @@ export default function GlazeShelfApp({
     setMsg("Recipe saved ✓");
     setShelfView("recipes");
     setTab("shelf");
+  }
+  async function updateRecipe() {
+    if (!editingRecipeId) return;
+    if (!layers.length) return setMsg("Add at least one glaze layer.");
+    const r = await sb.rpc("update_recipe_from_stack", {
+      p_recipe_id: editingRecipeId,
+      p_name: recipeName.trim() || layers.map((x) => x.glaze_name).join(" + "),
+      p_clay_id: clay?.clay_id ?? null,
+      p_cone: cone,
+      p_form: projectDescription.trim() || orientation,
+      p_texture: texture,
+      p_goal: goal || null,
+      p_glaze_ids: layers.map((x) => x.glaze_id),
+      p_coats: layers.map((x) => x.coats),
+      p_placements: layers.map(encodeApplication),
+      p_prediction_verdict: analysis?.verdict || null,
+      p_prediction_movement_risk:
+        analysis?.movement_risk == null ? null : Number(analysis.movement_risk),
+      p_prediction_warnings: analysis ? analysis.warnings || [] : null,
+      p_prediction_rationale: analysis?.rationale || null,
+      p_prediction_confidence: analysis?.confidence || null,
+      p_prediction_effect_match: analysis?.effect_match || null,
+      p_prediction_food_guidance: analysis?.food_contact_guidance || null,
+      p_prediction_compatibility: analysis?.compatibility || null,
+      p_prediction_clay_influence: analysis?.clay_influence || null,
+    });
+    if (r.error) return setMsg(r.error.message);
+    setMsg("Recipe updated ✓");
+    await load();
   }
   async function deleteRecipe(id: string, name: string) {
     if (
@@ -1106,6 +1137,7 @@ export default function GlazeShelfApp({
   function applyRecipeToBuilder(detailRows: any[]) {
     if (!detailRows.length) return;
     const first = detailRows[0];
+    setEditingRecipeId(first.recipe_id);
     setClay(
       first.clay_id
         ? { clay_id: first.clay_id, clay_name: first.clay_name }
@@ -1149,7 +1181,10 @@ export default function GlazeShelfApp({
     setTab("build");
   }
   async function loadRecipeIntoBuilder(id: string) {
-    if (!id) return;
+    if (!id) {
+      setEditingRecipeId("");
+      return;
+    }
     const r = await sb.rpc("get_recipe_detail_v2", { p_recipe_id: id });
     if (r.error) return setMsg(r.error.message);
     applyRecipeToBuilder(r.data ?? []);
@@ -3127,6 +3162,26 @@ export default function GlazeShelfApp({
                   ))}
                 </select>
               </label>
+            )}
+
+            {editingRecipeId && (
+              <div className="card recipe-editing-banner">
+                <div>
+                  <span className="eyebrow">CORRECTING A SAVED RECIPE</span>
+                  <strong>{recipeName || "This recipe"}</strong>
+                </div>
+                <div className="recipe-editing-actions">
+                  <button className="btn primary" onClick={updateRecipe}>
+                    Update Recipe
+                  </button>
+                  <button
+                    className="btn ghost"
+                    onClick={() => setEditingRecipeId("")}
+                  >
+                    Stop Editing
+                  </button>
+                </div>
+              </div>
             )}
 
             <div className="builder-context-grid">
