@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase";
@@ -200,6 +200,10 @@ export default function GlazeShelfApp({
     [accountPassword, setAccountPassword] = useState(""),
     [accountPasswordConfirm, setAccountPasswordConfirm] = useState(""),
     [profilePhoto, setProfilePhoto] = useState<File | null>(null),
+    [cropSrc, setCropSrc] = useState(""),
+    [cropNatural, setCropNatural] = useState({ w: 0, h: 0 }),
+    [cropZoom, setCropZoom] = useState(1),
+    [cropOffset, setCropOffset] = useState({ x: 0, y: 0 }),
     [profilePreview, setProfilePreview] = useState(""),
     [profileDefaultCone, setProfileDefaultCone] = useState("6"),
     [profileStudio, setProfileStudio] = useState(""),
@@ -208,6 +212,13 @@ export default function GlazeShelfApp({
     [deleteAccountPassword, setDeleteAccountPassword] = useState(""),
     [deleteAccountConfirmation, setDeleteAccountConfirmation] = useState(""),
     [deletingAccount, setDeletingAccount] = useState(false);
+  const cropDragRef = useRef<{
+    dragging: boolean;
+    startX: number;
+    startY: number;
+    startOffsetX: number;
+    startOffsetY: number;
+  }>({ dragging: false, startX: 0, startY: 0, startOffsetX: 0, startOffsetY: 0 });
   function setTab(nextScreen: AppScreen) {
     setTabState(nextScreen);
     const nextPath = pathForScreen(nextScreen);
@@ -620,9 +631,108 @@ export default function GlazeShelfApp({
       return setMsg("Choose a JPG, PNG, WebP, or HEIC image.");
     if (file.size > 5 * 1024 * 1024)
       return setMsg("Choose a profile picture smaller than 5 MB.");
-    setProfilePhoto(file);
-    setProfilePreview(URL.createObjectURL(file));
+    if (cropSrc) URL.revokeObjectURL(cropSrc);
+    setCropZoom(1);
+    setCropOffset({ x: 0, y: 0 });
+    setCropSrc(URL.createObjectURL(file));
     setMsg("");
+  }
+  function cropBounds(zoom: number, natural: { w: number; h: number }) {
+    const VP = 280;
+    if (!natural.w || !natural.h) return { x: 0, y: 0 };
+    const baseScale = Math.max(VP / natural.w, VP / natural.h);
+    const scale = baseScale * zoom;
+    const x = Math.max(0, (natural.w * scale - VP) / 2);
+    const y = Math.max(0, (natural.h * scale - VP) / 2);
+    return { x, y };
+  }
+  function clampCropOffset(
+    offset: { x: number; y: number },
+    zoom: number,
+    natural: { w: number; h: number },
+  ) {
+    const bounds = cropBounds(zoom, natural);
+    return {
+      x: Math.min(bounds.x, Math.max(-bounds.x, offset.x)),
+      y: Math.min(bounds.y, Math.max(-bounds.y, offset.y)),
+    };
+  }
+  function onCropPointerDown(e: any) {
+    (e.target as Element).setPointerCapture(e.pointerId);
+    cropDragRef.current = {
+      dragging: true,
+      startX: e.clientX,
+      startY: e.clientY,
+      startOffsetX: cropOffset.x,
+      startOffsetY: cropOffset.y,
+    };
+  }
+  function onCropPointerMove(e: any) {
+    if (!cropDragRef.current.dragging) return;
+    const dx = e.clientX - cropDragRef.current.startX;
+    const dy = e.clientY - cropDragRef.current.startY;
+    setCropOffset(
+      clampCropOffset(
+        {
+          x: cropDragRef.current.startOffsetX + dx,
+          y: cropDragRef.current.startOffsetY + dy,
+        },
+        cropZoom,
+        cropNatural,
+      ),
+    );
+  }
+  function onCropPointerUp() {
+    cropDragRef.current.dragging = false;
+  }
+  function onCropZoomChange(nextZoom: number) {
+    setCropZoom(nextZoom);
+    setCropOffset((prev) => clampCropOffset(prev, nextZoom, cropNatural));
+  }
+  function cancelCrop() {
+    if (cropSrc) URL.revokeObjectURL(cropSrc);
+    setCropSrc("");
+    setCropNatural({ w: 0, h: 0 });
+    setCropZoom(1);
+    setCropOffset({ x: 0, y: 0 });
+  }
+  function confirmCrop() {
+    if (!cropSrc || !cropNatural.w) return;
+    const VP = 280;
+    const OUT = 512;
+    const baseScale = Math.max(VP / cropNatural.w, VP / cropNatural.h);
+    const scale = baseScale * cropZoom;
+    const sSize = VP / scale;
+    const centerImgX = cropNatural.w / 2 - cropOffset.x / scale;
+    const centerImgY = cropNatural.h / 2 - cropOffset.y / scale;
+    const sourceX = centerImgX - sSize / 2;
+    const sourceY = centerImgY - sSize / 2;
+    const canvas = document.createElement("canvas");
+    canvas.width = OUT;
+    canvas.height = OUT;
+    const ctx = canvas.getContext("2d");
+    const img = new Image();
+    img.onload = () => {
+      if (!ctx) return;
+      ctx.drawImage(img, sourceX, sourceY, sSize, sSize, 0, 0, OUT, OUT);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) return;
+          const cropped = new File([blob], "profile-photo.jpg", {
+            type: "image/jpeg",
+            lastModified: Date.now(),
+          });
+          if (profilePreview.startsWith("blob:"))
+            URL.revokeObjectURL(profilePreview);
+          setProfilePhoto(cropped);
+          setProfilePreview(URL.createObjectURL(cropped));
+          cancelCrop();
+        },
+        "image/jpeg",
+        0.9,
+      );
+    };
+    img.src = cropSrc;
   }
   async function search(quick = false, append = false) {
     setSearching(true);
@@ -1862,6 +1972,69 @@ export default function GlazeShelfApp({
                   />
                 </div>
               </div>
+              {cropSrc && typeof document !== "undefined" && createPortal(
+                <div className="overlay crop-overlay" onClick={cancelCrop}>
+                  <div className="crop-sheet" onClick={(e) => e.stopPropagation()}>
+                    <h2>Adjust Your Photo</h2>
+                    <p className="muted">Drag to reposition, use the slider to zoom.</p>
+                    <div
+                      className="crop-viewport"
+                      onPointerDown={onCropPointerDown}
+                      onPointerMove={onCropPointerMove}
+                      onPointerUp={onCropPointerUp}
+                      onPointerCancel={onCropPointerUp}
+                    >
+                      <img
+                        src={cropSrc}
+                        alt=""
+                        draggable={false}
+                        onLoad={(e) => {
+                          const img = e.currentTarget;
+                          setCropNatural({
+                            w: img.naturalWidth,
+                            h: img.naturalHeight,
+                          });
+                        }}
+                        style={
+                          cropNatural.w
+                            ? {
+                                width:
+                                  cropNatural.w *
+                                  Math.max(280 / cropNatural.w, 280 / cropNatural.h) *
+                                  cropZoom,
+                                height:
+                                  cropNatural.h *
+                                  Math.max(280 / cropNatural.w, 280 / cropNatural.h) *
+                                  cropZoom,
+                                transform: `translate(calc(-50% + ${cropOffset.x}px), calc(-50% + ${cropOffset.y}px))`,
+                              }
+                            : { opacity: 0 }
+                        }
+                      />
+                    </div>
+                    <label className="field-label crop-zoom-label">
+                      Zoom
+                      <input
+                        type="range"
+                        min="1"
+                        max="3"
+                        step="0.01"
+                        value={cropZoom}
+                        onChange={(e) => onCropZoomChange(Number(e.target.value))}
+                      />
+                    </label>
+                    <div className="crop-actions">
+                      <button className="btn ghost" onClick={cancelCrop}>
+                        Cancel
+                      </button>
+                      <button className="btn primary" onClick={confirmCrop}>
+                        Use Photo
+                      </button>
+                    </div>
+                  </div>
+                </div>,
+                document.body,
+              )}
               <div className="stack account-fields">
                 <label className="field-label">
                   Name
