@@ -155,6 +155,9 @@ export default function GlazeShelfApp({
     [preview, setPreview] = useState(""),
     [firingDetail, setFiringDetail] = useState<any>(null),
     [firingDetailPhotos, setFiringDetailPhotos] = useState<any[]>([]),
+    [firingComments, setFiringComments] = useState<any[]>([]),
+    [newComment, setNewComment] = useState(""),
+    [commentPosting, setCommentPosting] = useState(false),
     [firingDetailLoading, setFiringDetailLoading] = useState(false),
     [firingSaving, setFiringSaving] = useState(false),
     [journalFormOpen, setJournalFormOpen] = useState(false),
@@ -1479,9 +1482,12 @@ export default function GlazeShelfApp({
     setFiringDetailLoading(true);
     setFiringDetail({ firing_id: id });
     setFiringDetailPhotos([]);
-    const [detail, photos] = await Promise.all([
+    setFiringComments([]);
+    setNewComment("");
+    const [detail, photos, comments] = await Promise.all([
       sb.rpc("get_firing_detail_v2", { p_firing_id: id }),
       sb.rpc("get_firing_photos", { p_firing_id: id }),
+      sb.rpc("get_firing_comments", { p_firing_id: id }),
     ]);
     if (detail.error || photos.error) {
       setFiringDetailLoading(false);
@@ -1499,7 +1505,28 @@ export default function GlazeShelfApp({
     );
     setFiringDetail(detail.data?.[0] || null);
     setFiringDetailPhotos(signed.filter((item) => item.signedUrl));
+    setFiringComments(comments.data ?? []);
     setFiringDetailLoading(false);
+  }
+  async function postFiringComment() {
+    if (!firingDetail?.firing_id || !newComment.trim()) return;
+    setCommentPosting(true);
+    const r = await sb.rpc("add_firing_comment", {
+      p_firing_id: firingDetail.firing_id,
+      p_comment: newComment.trim(),
+    });
+    setCommentPosting(false);
+    if (r.error) return setMsg(r.error.message);
+    setNewComment("");
+    const refreshed = await sb.rpc("get_firing_comments", {
+      p_firing_id: firingDetail.firing_id,
+    });
+    setFiringComments(refreshed.data ?? []);
+  }
+  async function deleteFiringComment(commentId: string) {
+    const r = await sb.rpc("delete_firing_comment", { p_comment_id: commentId });
+    if (r.error) return setMsg(r.error.message);
+    setFiringComments((current) => current.filter((c) => c.comment_id !== commentId));
   }
   const combinedMaterials = useMemo(() => {
     const items = new Map<string, any>();
@@ -3976,6 +4003,47 @@ export default function GlazeShelfApp({
                             <figcaption>{titleCase(item.photo_type)}</figcaption>
                           </figure>
                         ))}
+                      </div>
+                    </section>
+                  )}
+                  {firingDetail.shared && (
+                    <section className="firing-comments-section">
+                      <span className="eyebrow">COMMENTS</span>
+                      {firingComments.length === 0 && (
+                        <p className="muted">No comments yet — be the first to say something.</p>
+                      )}
+                      {firingComments.map((c) => (
+                        <div className="firing-comment" key={c.comment_id}>
+                          <div className="firing-comment-heading">
+                            <strong>{c.display_name}</strong>
+                            <span>{new Date(c.created_at).toLocaleDateString()}</span>
+                          </div>
+                          <p>{c.comment}</p>
+                          {c.is_mine && (
+                            <button
+                              className="firing-comment-delete"
+                              onClick={() => deleteFiringComment(c.comment_id)}
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      <div className="firing-comment-form">
+                        <textarea
+                          className="textarea"
+                          placeholder="Share a thought about this firing…"
+                          value={newComment}
+                          onChange={(e) => setNewComment(e.target.value)}
+                          maxLength={1000}
+                        />
+                        <button
+                          className="btn primary"
+                          disabled={commentPosting || !newComment.trim()}
+                          onClick={postFiringComment}
+                        >
+                          {commentPosting ? "Posting…" : "Post Comment"}
+                        </button>
                       </div>
                     </section>
                   )}
