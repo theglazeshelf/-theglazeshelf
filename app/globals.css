@@ -458,6 +458,13 @@
 .journal-empty p{margin-bottom:0;line-height:1.4}
 .firing-card{border-left:4px solid var(--purple)}
 .firing-card-heading{align-items:flex-start}
+.firing-card-summary{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;cursor:pointer;list-style:revert}
+.firing-card-summary::marker{color:var(--purple)}
+details.firing-card[open] .firing-card-summary{margin-bottom:4px}
+.explore-card-extra{margin:8px 0;font-size:.78rem;color:var(--muted);cursor:pointer}
+.explore-card-extra summary{color:var(--purple);font-weight:800;cursor:pointer;list-style:revert}
+.explore-card-extra[open] summary{margin-bottom:8px}
+.explore-card-extra p{color:var(--muted);font-size:.78rem;margin:6px 0}
 .firing-rating{display:grid;place-items:center;min-width:46px;border-radius:12px;padding:8px;background:var(--purple-soft);color:var(--purple);font-size:.76rem;font-weight:900}
 .firing-card-badges{display:flex;flex-wrap:wrap;gap:6px;margin:11px 0}
 .firing-card-badges span{border-radius:999px;padding:5px 8px;background:#eff3f2;color:var(--muted);font-size:.68rem;font-weight:800}
