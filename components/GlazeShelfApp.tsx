@@ -227,6 +227,23 @@ export default function GlazeShelfApp({
       window.requestAnimationFrame(() => window.scrollTo(0, 0));
     }
   }
+  function smartMatch(haystack: string, query: string) {
+    const q = (query || "").trim().toLowerCase();
+    if (!q) return true;
+    const hWords = String(haystack || "")
+      .toLowerCase()
+      .replace(/[-_/]+/g, " ")
+      .split(" ")
+      .filter(Boolean);
+    const qWords = q.replace(/[-_/]+/g, " ").split(" ").filter(Boolean);
+    const matchesSomeSuffix = (term: string) => {
+      for (let i = 0; i < hWords.length; i++) {
+        if (hWords.slice(i).join("").startsWith(term)) return true;
+      }
+      return false;
+    };
+    return qWords.every((w) => matchesSomeSuffix(w));
+  }
   function decodeApplication(value: any) {
     const raw = String(value || "overall").toLowerCase();
     if (raw.includes("::")) {
@@ -1546,17 +1563,16 @@ export default function GlazeShelfApp({
     shelfConeFilter !== "all" ||
     shelfStockFilter !== "all";
   const visibleShelfMaterials = useMemo(() => {
-    const needle = shelfQuery.trim().toLowerCase();
     const chosenCone = shelfConeFilter === "all" ? null : Number(shelfConeFilter);
     const filtered = ownedMaterials.filter((x) => {
-      const searchable = `${x.item_name || ""} ${x.manufacturer || ""} ${x.sku_or_code || ""}`.toLowerCase();
+      const searchable = `${x.item_name || ""} ${x.manufacturer || ""} ${x.sku_or_code || ""}`;
       const matchesCone =
         chosenCone == null ||
         ((x.cone_min == null || chosenCone >= Number(x.cone_min)) &&
           (x.cone_max == null || chosenCone <= Number(x.cone_max)));
       const low = x.personalStatus === "low" || x.studioStatus === "low";
       return (
-        (!needle || searchable.includes(needle)) &&
+        smartMatch(searchable, shelfQuery) &&
         (shelfTypeFilter === "all" || x.item_type === shelfTypeFilter) &&
         (shelfBrandFilter === "all" || x.manufacturer === shelfBrandFilter) &&
         matchesCone &&
