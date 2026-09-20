@@ -135,6 +135,11 @@ export default function GlazeShelfApp({
     [studio, setStudio] = useState(""),
     [studioName, setStudioName] = useState(""),
     [join, setJoin] = useState(""),
+    [inviteCodeShown, setInviteCodeShown] = useState(""),
+    [showTransferPanel, setShowTransferPanel] = useState(false),
+    [studioMembers, setStudioMembers] = useState<any[]>([]),
+    [transferTargetId, setTransferTargetId] = useState(""),
+    [transferring, setTransferring] = useState(false),
     [studioShelf, setStudioShelf] = useState<any[]>([]),
     [firings, setFirings] = useState<any[]>([]),
     [recipe, setRecipe] = useState(""),
@@ -904,7 +909,36 @@ export default function GlazeShelfApp({
   }
   async function invite(id: string) {
     const r = await sb.rpc("regenerate_studio_join_code", { p_studio_id: id });
-    setMsg(r.error ? r.error.message : "Invite code: " + r.data);
+    if (r.error) return setMsg(r.error.message);
+    setInviteCodeShown(r.data || "");
+  }
+  async function copyInviteCode() {
+    try {
+      await navigator.clipboard.writeText(inviteCodeShown);
+      setMsg("Invite code copied ✓");
+    } catch {
+      setMsg("Could not copy — select and copy the code manually.");
+    }
+  }
+  async function openTransferPanel(studioId: string) {
+    setShowTransferPanel(true);
+    setTransferTargetId("");
+    const r = await sb.rpc("get_studio_members", { p_studio_id: studioId });
+    if (r.error) return setMsg(r.error.message);
+    setStudioMembers((r.data ?? []).filter((m: any) => !m.is_owner));
+  }
+  async function transferOwnership(studioId: string) {
+    if (!transferTargetId) return;
+    setTransferring(true);
+    const r = await sb.rpc("transfer_studio_ownership", {
+      p_studio_id: studioId,
+      p_new_owner_user_id: transferTargetId,
+    });
+    setTransferring(false);
+    if (r.error) return setMsg(r.error.message);
+    setMsg("Studio ownership transferred ✓");
+    setShowTransferPanel(false);
+    await load();
   }
   async function studioAdd(x: any) {
     if (!studio) return setMsg("Open a studio first.");
@@ -1950,6 +1984,72 @@ export default function GlazeShelfApp({
                     <button className="btn ghost" onClick={() => invite(currentStudio.studio_id)}>
                       Invite Someone to {currentStudio.name}
                     </button>
+                  )}
+                  {inviteCodeShown && (
+                    <div className="card invite-code-card">
+                      <span className="eyebrow">INVITE CODE</span>
+                      <strong className="invite-code-value">{inviteCodeShown}</strong>
+                      <div className="invite-code-actions">
+                        <button className="btn primary" onClick={copyInviteCode}>
+                          Copy Code
+                        </button>
+                        <button className="btn ghost" onClick={() => setInviteCodeShown("")}>
+                          Done
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {currentStudio?.role === "owner" && !showTransferPanel && (
+                    <button
+                      className="btn ghost"
+                      onClick={() => openTransferPanel(currentStudio.studio_id)}
+                    >
+                      Transfer Ownership of {currentStudio.name}
+                    </button>
+                  )}
+                  {showTransferPanel && (
+                    <div className="card transfer-ownership-card">
+                      <span className="eyebrow">TRANSFER OWNERSHIP</span>
+                      <p className="muted">
+                        Choose an existing member to become the new owner. You'll stay on as an admin.
+                      </p>
+                      {studioMembers.length === 0 ? (
+                        <p className="muted">
+                          No other members yet — invite someone first, then come back here.
+                        </p>
+                      ) : (
+                        <label className="field-label">
+                          New Owner
+                          <select
+                            className="select"
+                            value={transferTargetId}
+                            onChange={(e) => setTransferTargetId(e.target.value)}
+                          >
+                            <option value="">Choose a member…</option>
+                            {studioMembers.map((m) => (
+                              <option key={m.user_id} value={m.user_id}>
+                                {m.display_name}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      )}
+                      <div className="transfer-ownership-actions">
+                        <button
+                          className="btn ghost"
+                          onClick={() => setShowTransferPanel(false)}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          className="btn primary"
+                          disabled={!transferTargetId || transferring}
+                          onClick={() => transferOwnership(currentStudio.studio_id)}
+                        >
+                          {transferring ? "Transferring…" : "Transfer Ownership"}
+                        </button>
+                      </div>
+                    </div>
                   )}
                   <div className="studio-divider"><span>add another studio</span></div>
                   <label className="field-label">
