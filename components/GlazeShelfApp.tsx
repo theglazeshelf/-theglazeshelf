@@ -3117,7 +3117,7 @@ export default function GlazeShelfApp({
         )}
         {tab === "build" && (
           <>
-            <section className="hero">
+            <section className="hero builder-hero">
               <span className="eyebrow">YOUR VISION</span>
               <h1>Combination Builder</h1>
               <p className="builder-description">Build, layer, analyze your glaze combination.</p>
@@ -3133,18 +3133,42 @@ export default function GlazeShelfApp({
               />
             </label>
 
-            <button
-              className="card builder-clay-button"
-              onClick={() => {
-                setKind("clay");
-                setQ("");
-                setResults([]);
-                setHasMoreResults(false);
-                setTab("find");
-              }}
-            >
-              <strong>Clay:</strong> {clay?.clay_name || "Select clay"}
-            </button>
+            <div className="builder-context-grid">
+              <label className="field-label">
+                Project Orientation
+                <select
+                  className="select"
+                  value={orientation}
+                  onChange={(e) => {
+                    setOrientation(e.target.value);
+                    setAnalysis(null);
+                  }}
+                >
+                  <option value="vertical">Vertical — bowl, mug, vase</option>
+                  <option value="horizontal">
+                    Horizontal — plate, platter, tile
+                  </option>
+                  <option value="sculptural">Sculptural / mixed angles</option>
+                </select>
+              </label>
+              <label className="field-label">
+                Surface Texture
+                <select
+                  className="select"
+                  value={texture}
+                  onChange={(e) => {
+                    setTexture(e.target.value);
+                    setAnalysis(null);
+                  }}
+                >
+                  <option value="smooth">Smooth</option>
+                  <option value="carved">Carved</option>
+                  <option value="chattered">Chattered</option>
+                  <option value="textured">Textured</option>
+                  <option value="groggy">Groggy / coarse clay</option>
+                </select>
+              </label>
+            </div>
 
             {recipes.length > 0 && (
               <label className="field-label">
@@ -3184,42 +3208,19 @@ export default function GlazeShelfApp({
               </div>
             )}
 
-            <div className="builder-context-grid">
-              <label className="field-label">
-                Project Orientation
-                <select
-                  className="select"
-                  value={orientation}
-                  onChange={(e) => {
-                    setOrientation(e.target.value);
-                    setAnalysis(null);
-                  }}
-                >
-                  <option value="vertical">Vertical — bowl, mug, vase</option>
-                  <option value="horizontal">
-                    Horizontal — plate, platter, tile
-                  </option>
-                  <option value="sculptural">Sculptural / mixed angles</option>
-                </select>
-              </label>
-              <label className="field-label">
-                Surface Texture
-                <select
-                  className="select"
-                  value={texture}
-                  onChange={(e) => {
-                    setTexture(e.target.value);
-                    setAnalysis(null);
-                  }}
-                >
-                  <option value="smooth">Smooth</option>
-                  <option value="carved">Carved</option>
-                  <option value="chattered">Chattered</option>
-                  <option value="textured">Textured</option>
-                  <option value="groggy">Groggy / coarse clay</option>
-                </select>
-              </label>
-            </div>
+            <button
+              className="btn clay-select-button"
+              style={{ width: "100%", marginBottom: 8 }}
+              onClick={() => {
+                setKind("clay");
+                setQ("");
+                setResults([]);
+                setHasMoreResults(false);
+                setTab("find");
+              }}
+            >
+              {clay?.clay_name ? `Clay: ${clay.clay_name}` : "+ Select Clay"}
+            </button>
 
             <button
               className="btn secondary"
