@@ -120,6 +120,7 @@ export default function GlazeShelfApp({
     [layers, setLayers] = useState<any[]>([]),
     [clay, setClay] = useState<any>(null),
     [cone, setCone] = useState(6),
+    [bisqueCone, setBisqueCone] = useState("06"),
     [projectDescription, setProjectDescription] = useState(""),
     [orientation, setOrientation] = useState("vertical"),
     [texture, setTexture] = useState("smooth"),
@@ -329,6 +330,9 @@ export default function GlazeShelfApp({
   }, [pathname]);
   useEffect(() => {
     setFiringDetail(null);
+    setMaterialDetail(null);
+    setGlazeDetail(null);
+    setRecipeDetail([]);
   }, [tab]);
   useEffect(() => {
     if (session) {
@@ -3043,21 +3047,26 @@ export default function GlazeShelfApp({
                       </div>
                       <span className="explore-rating">{item.rating || "—"}/5</span>
                     </div>
-                    {Array.isArray(item.layers) && item.layers.length > 0 && (
-                      <div className="explore-layer-list">
-                        {item.layers.map((layer: any, index: number) => (
-                          <span key={(layer.glaze_id || layer.glaze_name || "layer") + index}>
-                            {layer.glaze_name}{layer.coats ? " · " + layer.coats + " coats" : ""}
-                          </span>
-                        ))}
-                      </div>
+                    {(item.layers?.length > 0 || item.color_result || item.surface_result || item.movement_result || item.notes) && (
+                      <details className="explore-card-extra">
+                        <summary>Recipe &amp; result details</summary>
+                        {Array.isArray(item.layers) && item.layers.length > 0 && (
+                          <div className="explore-layer-list">
+                            {item.layers.map((layer: any, index: number) => (
+                              <span key={(layer.glaze_id || layer.glaze_name || "layer") + index}>
+                                {layer.glaze_name}{layer.coats ? " · " + layer.coats + " coats" : ""}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <div className="explore-result-chips">
+                          {item.color_result && <span>{item.color_result}</span>}
+                          {item.surface_result && <span>{item.surface_result}</span>}
+                          {item.movement_result && <span>{item.movement_result}</span>}
+                        </div>
+                        {item.notes && <p>{item.notes}</p>}
+                      </details>
                     )}
-                    <div className="explore-result-chips">
-                      {item.color_result && <span>{item.color_result}</span>}
-                      {item.surface_result && <span>{item.surface_result}</span>}
-                      {item.movement_result && <span>{item.movement_result}</span>}
-                    </div>
-                    {item.notes && <p>{item.notes}</p>}
                     <button className="btn secondary explore-detail-button" type="button" onClick={() => openFiringDetail(item.firing_id)}>
                       View Firing Details <ArrowRight size={16} />
                     </button>
@@ -3113,7 +3122,7 @@ export default function GlazeShelfApp({
                   <option value="">Start fresh, or choose a recipe…</option>
                   {recipes.map((r) => (
                     <option key={r.recipe_id} value={r.recipe_id}>
-                      {r.recipe_name}
+                      {r.recipe_name?.trim() || "Untitled recipe"}
                     </option>
                   ))}
                 </select>
@@ -3301,24 +3310,40 @@ export default function GlazeShelfApp({
               </button>
             </div>
 
-            <label className="field-label">
-              Firing Cone
-              <select
-                className="select"
-                value={cone}
-                onChange={(e) => {
-                  setCone(+e.target.value);
-                  setAnalysis(null);
-                }}
-              >
-                <option value="5">Cone 5</option>
-                <option value="6">Cone 6</option>
-                <option value="7">Cone 7</option>
-                <option value="8">Cone 8</option>
-                <option value="9">Cone 9</option>
-                <option value="10">Cone 10</option>
-              </select>
-            </label>
+            <div className="builder-context-grid">
+              <label className="field-label">
+                Glaze Firing Cone
+                <select
+                  className="select"
+                  value={cone}
+                  onChange={(e) => {
+                    setCone(+e.target.value);
+                    setAnalysis(null);
+                  }}
+                >
+                  <option value="5">Cone 5</option>
+                  <option value="6">Cone 6</option>
+                  <option value="7">Cone 7</option>
+                  <option value="8">Cone 8</option>
+                  <option value="9">Cone 9</option>
+                  <option value="10">Cone 10</option>
+                </select>
+              </label>
+              <label className="field-label">
+                Bisque Firing Cone
+                <select
+                  className="select"
+                  value={bisqueCone}
+                  onChange={(e) => setBisqueCone(e.target.value)}
+                >
+                  <option value="010">Cone 010</option>
+                  <option value="08">Cone 08</option>
+                  <option value="06">Cone 06</option>
+                  <option value="05">Cone 05</option>
+                  <option value="04">Cone 04</option>
+                </select>
+              </label>
+            </div>
 
             <textarea
               className="textarea"
@@ -3469,6 +3494,7 @@ export default function GlazeShelfApp({
                     <option>Standard / medium</option>
                     <option>Slow</option>
                     <option>Fast</option>
+                    <option>Community Kiln</option>
                     <option>Custom / programmed</option>
                   </select>
                 </label>
@@ -3554,8 +3580,8 @@ export default function GlazeShelfApp({
               </div>
             )}
             {firings.map((f) => (
-              <div className="item firing-card" key={f.firing_id}>
-                <div className="row firing-card-heading">
+              <details className="item firing-card" key={f.firing_id}>
+                <summary className="firing-card-summary">
                   <div>
                     <strong>{f.recipe_name}</strong>
                     <div className="muted">
@@ -3564,7 +3590,7 @@ export default function GlazeShelfApp({
                     </div>
                   </div>
                   <span className="firing-rating">{f.rating || "—"}/5</span>
-                </div>
+                </summary>
                 <div className="firing-card-badges">
                   <span>E{f.evidence_tier} evidence</span>
                   {f.photo_count > 0 && <span>{f.photo_count} {Number(f.photo_count) === 1 ? "photo" : "photos"}</span>}
@@ -3592,7 +3618,7 @@ export default function GlazeShelfApp({
                           : "Share in Explore"}
                   </button>
                 </div>
-              </div>
+              </details>
             ))}
           </>
         )}
@@ -3820,7 +3846,7 @@ export default function GlazeShelfApp({
             </section>
           </div>
         )}
-        {materialDetail && (
+        {materialDetail && typeof document !== "undefined" && createPortal(
           <div className="overlay" onClick={closeMaterialDetail}>
             <div
               className="glaze-detail-sheet"
@@ -3891,9 +3917,10 @@ export default function GlazeShelfApp({
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body,
         )}
-        {glazeDetail && (
+        {glazeDetail && typeof document !== "undefined" && createPortal(
           <div className="overlay" onClick={closeGlazeDetail}>
             <div
               className="glaze-detail-sheet"
@@ -4047,9 +4074,10 @@ export default function GlazeShelfApp({
                 </>
               )}
             </div>
-          </div>
+          </div>,
+          document.body,
         )}
-        {recipeDetail.length > 0 && (
+        {recipeDetail.length > 0 && typeof document !== "undefined" && createPortal(
           <div className="overlay" onClick={() => setRecipeDetail([])}>
             <div className="recipe-sheet" onClick={(e) => e.stopPropagation()}>
               <div className="row">
@@ -4173,7 +4201,8 @@ export default function GlazeShelfApp({
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body,
         )}
         {msg && tab !== "find" && tab !== "account" && (
           <div className="notice">{msg}</div>
