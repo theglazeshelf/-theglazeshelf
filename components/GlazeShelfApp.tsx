@@ -365,6 +365,7 @@ export default function GlazeShelfApp({
     setMaterialDetail(null);
     setGlazeDetail(null);
     setRecipeDetail([]);
+    setInventoryItem(null);
   }, [tab]);
   useEffect(() => {
     if (session) {
@@ -4054,7 +4055,7 @@ export default function GlazeShelfApp({
           </div>,
           document.body,
         )}
-        {inventoryItem && (
+        {inventoryItem && typeof document !== "undefined" && createPortal(
           <div className="overlay inventory-overlay" onClick={() => setInventoryItem(null)}>
             <section
               className="inventory-sheet"
@@ -4138,7 +4139,8 @@ export default function GlazeShelfApp({
                 </button>
               </div>
             </section>
-          </div>
+          </div>,
+          document.body,
         )}
         {materialDetail && typeof document !== "undefined" && createPortal(
           <div className="overlay" onClick={closeMaterialDetail}>
