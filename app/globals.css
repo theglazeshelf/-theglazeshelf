@@ -514,9 +514,7 @@ details.firing-card[open] .firing-card-summary{margin-bottom:4px}
 .explore-privacy-note svg{color:var(--teal);flex:0 0 auto;margin-top:2px}
 .explore-privacy-note p{margin:0;font-size:.8rem;color:var(--muted)}
 .explore-notice{margin-bottom:10px}
-.explore-toggle{display:flex;gap:8px;margin-bottom:12px}
-.explore-toggle button{flex:1;border:1px solid var(--line);background:white;color:var(--ink);border-radius:12px;padding:10px;font-weight:800;font-size:.82rem}
-.explore-toggle button.active{background:var(--purple);border-color:var(--purple);color:white}
+.explore-firings-button{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-bottom:14px;background:var(--purple);color:#fff;box-shadow:0 10px 22px #6450c82c}
 .firing-detail-overlay{z-index:45}
 .firing-detail-sheet{width:min(560px,100%);max-height:93vh;overflow:auto;border-radius:26px 26px 0 0;padding:22px 18px calc(28px + env(safe-area-inset-bottom));background:#fff;box-shadow:0 -14px 42px #17324d30}
 .firing-detail-heading{align-items:flex-start}
