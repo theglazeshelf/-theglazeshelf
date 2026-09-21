@@ -2528,18 +2528,22 @@ export default function GlazeShelfApp({
           <>
             <section className="hero">
               <span className="eyebrow">MY STUDIO</span>
-              {studios.find((s) => s.studio_id === studio)?.photo_url && (
-                <img
-                  className="studio-hero-photo"
-                  src={studios.find((s) => s.studio_id === studio)?.photo_url}
-                  alt=""
-                />
-              )}
-              <h1>
-                {studios.find((s) => s.studio_id === studio)?.name ||
-                  "Studio Shelf"}
-              </h1>
-              <p>Everything available in this studio.</p>
+              <div className="studio-hero-row">
+                {studios.find((s) => s.studio_id === studio)?.photo_url && (
+                  <img
+                    className="studio-hero-photo"
+                    src={studios.find((s) => s.studio_id === studio)?.photo_url}
+                    alt=""
+                  />
+                )}
+                <div>
+                  <h1>
+                    {studios.find((s) => s.studio_id === studio)?.name ||
+                      "Studio Shelf"}
+                  </h1>
+                  <p>Everything available in this studio.</p>
+                </div>
+              </div>
             </section>
             <div className="grid">
               <button className="btn primary" onClick={() => openFinder("all")}>
