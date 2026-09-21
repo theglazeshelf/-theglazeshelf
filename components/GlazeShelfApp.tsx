@@ -163,8 +163,8 @@ export default function GlazeShelfApp({
     [defects, setDefects] = useState(""),
     [firingNotes, setFiringNotes] = useState(""),
     [rating, setRating] = useState(5),
-    [beforePhoto, setBeforePhoto] = useState<File | null>(null),
-    [photo, setPhoto] = useState<File | null>(null),
+    [beforePhoto, setBeforePhoto] = useState<File[]>([]),
+    [photo, setPhoto] = useState<File[]>([]),
     [preview, setPreview] = useState(""),
     [firingDetail, setFiringDetail] = useState<any>(null),
     [firingDetailPhotos, setFiringDetailPhotos] = useState<any[]>([]),
@@ -1407,8 +1407,8 @@ export default function GlazeShelfApp({
     setDefects("");
     setFiringNotes("");
     setRating(5);
-    setBeforePhoto(null);
-    setPhoto(null);
+    setBeforePhoto([]);
+    setPhoto([]);
     setJournalFormOpen(true);
     setTab("journal");
     window.requestAnimationFrame(() => window.scrollTo(0, 0));
@@ -1428,8 +1428,8 @@ export default function GlazeShelfApp({
     setDefects("");
     setFiringNotes("");
     setRating(5);
-    setBeforePhoto(null);
-    setPhoto(null);
+    setBeforePhoto([]);
+    setPhoto([]);
     setJournalFormOpen(true);
     window.requestAnimationFrame(() => window.scrollTo(0, 0));
   }
@@ -1484,8 +1484,8 @@ export default function GlazeShelfApp({
         return setMsg(r.error.message);
       }
       try {
-        if (beforePhoto) await uploadFiringPhoto(completingFiringId, beforePhoto, "before");
-        if (photo) await uploadFiringPhoto(completingFiringId, photo, "after");
+        for (const f of beforePhoto) await uploadFiringPhoto(completingFiringId, f, "before");
+        for (const f of photo) await uploadFiringPhoto(completingFiringId, f, "after");
       } catch (error: any) {
         setFiringSaving(false);
         await load();
@@ -1494,8 +1494,8 @@ export default function GlazeShelfApp({
       setFiringSaving(false);
       setCompletingFiringId("");
       setRecipe("");
-      setBeforePhoto(null);
-      setPhoto(null);
+      setBeforePhoto([]);
+      setPhoto([]);
       setJournalFormOpen(false);
       setMsg("Firing completed ✓");
       return await load();
@@ -1524,8 +1524,8 @@ export default function GlazeShelfApp({
       return setMsg(r.error.message);
     }
     try {
-      if (beforePhoto) await uploadFiringPhoto(r.data, beforePhoto, "before");
-      if (photo) await uploadFiringPhoto(r.data, photo, "after");
+      for (const f of beforePhoto) await uploadFiringPhoto(r.data, f, "before");
+      for (const f of photo) await uploadFiringPhoto(r.data, f, "after");
     } catch (error: any) {
       setFiringSaving(false);
       await load();
@@ -1533,8 +1533,8 @@ export default function GlazeShelfApp({
     }
     setFiringSaving(false);
     setRecipe("");
-    setBeforePhoto(null);
-    setPhoto(null);
+    setBeforePhoto([]);
+    setPhoto([]);
     setJournalFormOpen(false);
     setMsg(mode === "progress" ? "Firing saved as in progress ✓" : "Firing result saved ✓");
     await load();
@@ -3959,6 +3959,16 @@ export default function GlazeShelfApp({
                   </select>
                 </label>
               </div>
+              <label className="field-label file-field">
+                Before Firing Photos
+                <input
+                  className="input"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(e) => setBeforePhoto(Array.from(e.target.files ?? []))}
+                />
+              </label>
               <div className="journal-two-column">
                 <label className="field-label">
                   Glaze Firing Cone
@@ -4039,17 +4049,17 @@ export default function GlazeShelfApp({
                 <textarea className="textarea" placeholder="What would you repeat or change next time?" value={firingNotes} onChange={(e) => setFiringNotes(e.target.value)} />
               </label>
               <div className="journal-section-divider" />
-              <span className="journal-step">3 · Photos</span>
-              <div className="journal-two-column photo-input-grid">
-                <label className="field-label file-field">
-                  Before Firing
-                  <input className="input" type="file" accept="image/*" onChange={(e) => setBeforePhoto(e.target.files?.[0] ?? null)} />
-                </label>
-                <label className="field-label file-field">
-                  After Firing
-                  <input className="input" type="file" accept="image/*" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} />
-                </label>
-              </div>
+              <span className="journal-step">3 · After Firing Photos</span>
+              <label className="field-label file-field">
+                After Firing Photos
+                <input
+                  className="input"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(e) => setPhoto(Array.from(e.target.files ?? []))}
+                />
+              </label>
               {completingFiringId ? (
                 <button className="btn primary journal-save" disabled={firingSaving} onClick={() => fire("complete")}>
                   {firingSaving ? "Saving…" : "Complete Firing"}
