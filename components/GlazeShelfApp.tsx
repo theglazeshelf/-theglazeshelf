@@ -1925,7 +1925,7 @@ export default function GlazeShelfApp({
                 type="button"
                 onClick={() => setHomeStudioManagerOpen(true)}
               >
-                {currentStudio ? "Change" : "Set Up"}
+                {currentStudio ? "Studio Details" : "Set Up"}
               </button>
             </section>
 
