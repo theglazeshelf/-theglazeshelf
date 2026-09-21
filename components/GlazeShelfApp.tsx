@@ -2785,8 +2785,8 @@ export default function GlazeShelfApp({
                   </div>
                 )}
                 {recipes.map((r) => (
-                  <div className="item recipe-card" key={r.recipe_id}>
-                    <div className="row recipe-card-heading">
+                  <details className="item recipe-card" key={r.recipe_id}>
+                    <summary className="recipe-card-summary">
                       <div>
                         <strong>{r.name}</strong>
                         <div className="muted">
@@ -2800,7 +2800,7 @@ export default function GlazeShelfApp({
                       ) : (
                         <span className="tag">Saved recipe</span>
                       )}
-                    </div>
+                    </summary>
                     <div className="recipe-card-stats">
                       <span>
                         <strong>{r.layer_count}</strong>{" "}
@@ -2856,7 +2856,7 @@ export default function GlazeShelfApp({
                     >
                       Delete Recipe
                     </button>
-                  </div>
+                  </details>
                 ))}
               </>
             )}
