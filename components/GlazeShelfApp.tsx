@@ -2337,69 +2337,6 @@ export default function GlazeShelfApp({
                   />
                 </div>
               </div>
-              {cropSrc && typeof document !== "undefined" && createPortal(
-                <div className="overlay crop-overlay" onClick={cancelCrop}>
-                  <div className="crop-sheet" onClick={(e) => e.stopPropagation()}>
-                    <h2>{cropTarget === "studio" ? "Adjust Studio Photo" : "Adjust Your Photo"}</h2>
-                    <p className="muted">Drag to reposition, use the slider to zoom.</p>
-                    <div
-                      className="crop-viewport"
-                      onPointerDown={onCropPointerDown}
-                      onPointerMove={onCropPointerMove}
-                      onPointerUp={onCropPointerUp}
-                      onPointerCancel={onCropPointerUp}
-                    >
-                      <img
-                        src={cropSrc}
-                        alt=""
-                        draggable={false}
-                        onLoad={(e) => {
-                          const img = e.currentTarget;
-                          setCropNatural({
-                            w: img.naturalWidth,
-                            h: img.naturalHeight,
-                          });
-                        }}
-                        style={
-                          cropNatural.w
-                            ? {
-                                width:
-                                  cropNatural.w *
-                                  Math.max(280 / cropNatural.w, 280 / cropNatural.h) *
-                                  cropZoom,
-                                height:
-                                  cropNatural.h *
-                                  Math.max(280 / cropNatural.w, 280 / cropNatural.h) *
-                                  cropZoom,
-                                transform: `translate(calc(-50% + ${cropOffset.x}px), calc(-50% + ${cropOffset.y}px))`,
-                              }
-                            : { opacity: 0 }
-                        }
-                      />
-                    </div>
-                    <label className="field-label crop-zoom-label">
-                      Zoom
-                      <input
-                        type="range"
-                        min="1"
-                        max="3"
-                        step="0.01"
-                        value={cropZoom}
-                        onChange={(e) => onCropZoomChange(Number(e.target.value))}
-                      />
-                    </label>
-                    <div className="crop-actions">
-                      <button className="btn ghost" onClick={cancelCrop}>
-                        Cancel
-                      </button>
-                      <button className="btn primary" onClick={confirmCrop}>
-                        Use Photo
-                      </button>
-                    </div>
-                  </div>
-                </div>,
-                document.body,
-              )}
               <div className="stack account-fields">
                 <label className="field-label">
                   Name
@@ -4562,6 +4499,69 @@ export default function GlazeShelfApp({
                 </button>
               </div>
             </section>
+          </div>,
+          document.body,
+        )}
+        {cropSrc && typeof document !== "undefined" && createPortal(
+          <div className="overlay crop-overlay" onClick={cancelCrop}>
+            <div className="crop-sheet" onClick={(e) => e.stopPropagation()}>
+              <h2>{cropTarget === "studio" ? "Adjust Studio Photo" : "Adjust Your Photo"}</h2>
+              <p className="muted">Drag to reposition, use the slider to zoom.</p>
+              <div
+                className="crop-viewport"
+                onPointerDown={onCropPointerDown}
+                onPointerMove={onCropPointerMove}
+                onPointerUp={onCropPointerUp}
+                onPointerCancel={onCropPointerUp}
+              >
+                <img
+                  src={cropSrc}
+                  alt=""
+                  draggable={false}
+                  onLoad={(e) => {
+                    const img = e.currentTarget;
+                    setCropNatural({
+                      w: img.naturalWidth,
+                      h: img.naturalHeight,
+                    });
+                  }}
+                  style={
+                    cropNatural.w
+                      ? {
+                          width:
+                            cropNatural.w *
+                            Math.max(280 / cropNatural.w, 280 / cropNatural.h) *
+                            cropZoom,
+                          height:
+                            cropNatural.h *
+                            Math.max(280 / cropNatural.w, 280 / cropNatural.h) *
+                            cropZoom,
+                          transform: `translate(calc(-50% + ${cropOffset.x}px), calc(-50% + ${cropOffset.y}px))`,
+                        }
+                      : { opacity: 0 }
+                  }
+                />
+              </div>
+              <label className="field-label crop-zoom-label">
+                Zoom
+                <input
+                  type="range"
+                  min="1"
+                  max="3"
+                  step="0.01"
+                  value={cropZoom}
+                  onChange={(e) => onCropZoomChange(Number(e.target.value))}
+                />
+              </label>
+              <div className="crop-actions">
+                <button className="btn ghost" onClick={cancelCrop}>
+                  Cancel
+                </button>
+                <button className="btn primary" onClick={confirmCrop}>
+                  Use Photo
+                </button>
+              </div>
+            </div>
           </div>,
           document.body,
         )}
