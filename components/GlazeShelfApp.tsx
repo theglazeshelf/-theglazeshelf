@@ -135,6 +135,10 @@ export default function GlazeShelfApp({
     [studio, setStudio] = useState(""),
     [studioName, setStudioName] = useState(""),
     [join, setJoin] = useState(""),
+    [sharingRecipeId, setSharingRecipeId] = useState(""),
+    [studioRecipesOpen, setStudioRecipesOpen] = useState(false),
+    [studioRecipesList, setStudioRecipesList] = useState<any[]>([]),
+    [studioRecipesLoading, setStudioRecipesLoading] = useState(false),
     [inviteCodeShown, setInviteCodeShown] = useState(""),
     [showTransferPanel, setShowTransferPanel] = useState(false),
     [studioMembers, setStudioMembers] = useState<any[]>([]),
@@ -371,6 +375,7 @@ export default function GlazeShelfApp({
     setGlazeDetail(null);
     setRecipeDetail([]);
     setInventoryItem(null);
+    setStudioRecipesOpen(false);
   }, [tab]);
   useEffect(() => {
     if (session) {
@@ -1293,6 +1298,31 @@ export default function GlazeShelfApp({
       setMsg("Recipe deleted ✓");
       await load();
     }
+  }
+  async function toggleRecipeStudioShare(recipeId: string, currentlyShared: boolean) {
+    if (!currentStudio) return setMsg("Join or create a studio first.");
+    setSharingRecipeId(recipeId);
+    const r = currentlyShared
+      ? await sb.rpc("unshare_recipe_from_studio", { p_recipe_id: recipeId })
+      : await sb.rpc("share_recipe_to_studio", {
+          p_recipe_id: recipeId,
+          p_studio_id: currentStudio.studio_id,
+        });
+    setSharingRecipeId("");
+    if (r.error) return setMsg(r.error.message);
+    setMsg(currentlyShared ? "Recipe removed from studio ✓" : "Recipe shared with studio ✓");
+    await load();
+  }
+  async function openStudioRecipes() {
+    if (!currentStudio) return setMsg("Join or create a studio first.");
+    setStudioRecipesOpen(true);
+    setStudioRecipesLoading(true);
+    const r = await sb.rpc("get_studio_recipes", {
+      p_studio_id: currentStudio.studio_id,
+    });
+    setStudioRecipesLoading(false);
+    if (r.error) return setMsg(r.error.message);
+    setStudioRecipesList(r.data ?? []);
   }
   async function openRecipe(id: string) {
     const r = await sb.rpc("get_recipe_detail_v2", { p_recipe_id: id });
@@ -2740,6 +2770,12 @@ export default function GlazeShelfApp({
             )}
             {shelfView === "recipes" && (
               <>
+                {currentStudio && (
+                  <button className="btn secondary studio-shelf-link" onClick={openStudioRecipes}>
+                    <span>View {currentStudio.name}'s Shared Recipes</span>
+                    <ArrowRight size={16} />
+                  </button>
+                )}
                 {recipes.length === 0 && (
                   <div className="card">
                     <strong>No saved recipes yet.</strong>
@@ -2799,6 +2835,21 @@ export default function GlazeShelfApp({
                         Start Firing Log
                       </button>
                     </div>
+                    {currentStudio && (
+                      <button
+                        className={"btn " + (r.shared_studio_id ? "is-shared" : "ghost") + " firing-share-button"}
+                        disabled={sharingRecipeId === r.recipe_id}
+                        onClick={() =>
+                          toggleRecipeStudioShare(r.recipe_id, !!r.shared_studio_id)
+                        }
+                      >
+                        {sharingRecipeId === r.recipe_id
+                          ? "Updating…"
+                          : r.shared_studio_id
+                            ? `Remove from ${currentStudio.name}`
+                            : `Share with ${currentStudio.name}`}
+                      </button>
+                    )}
                     <button
                       className="btn delete-btn"
                       onClick={() => deleteRecipe(r.recipe_id, r.name)}
@@ -4596,6 +4647,48 @@ export default function GlazeShelfApp({
                   Delete Recipe
                 </button>
               </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+        {studioRecipesOpen && typeof document !== "undefined" && createPortal(
+          <div className="overlay" onClick={() => setStudioRecipesOpen(false)}>
+            <div className="recipe-sheet" onClick={(e) => e.stopPropagation()}>
+              <div className="row recipe-card-heading">
+                <h2>{currentStudio?.name}'s Shared Recipes</h2>
+                <button className="close" aria-label="Close" onClick={() => setStudioRecipesOpen(false)}>×</button>
+              </div>
+              {studioRecipesLoading && <p className="muted">Loading…</p>}
+              {!studioRecipesLoading && studioRecipesList.length === 0 && (
+                <p className="muted">
+                  No one has shared a recipe with this studio yet. Share one of yours from the Recipes tab.
+                </p>
+              )}
+              {studioRecipesList.map((r) => (
+                <div className="item recipe-card" key={r.recipe_id}>
+                  <div className="row recipe-card-heading">
+                    <div>
+                      <strong>{r.name}</strong>
+                      <div className="muted">
+                        {r.clay_name || "No clay selected"} • Cone {r.cone}
+                      </div>
+                    </div>
+                    {r.is_mine && <span className="tag">Yours</span>}
+                  </div>
+                  <div className="muted" style={{ marginBottom: 8 }}>
+                    Shared by {r.creator_display_name}
+                  </div>
+                  {Array.isArray(r.layers) && r.layers.length > 0 && (
+                    <div className="explore-layer-list">
+                      {r.layers.map((layer: any, index: number) => (
+                        <span key={index}>
+                          {layer.glaze_name}{layer.coats ? " · " + layer.coats + " coats" : ""}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           </div>,
           document.body,
