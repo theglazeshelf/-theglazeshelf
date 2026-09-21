@@ -1477,6 +1477,38 @@ export default function GlazeShelfApp({
     });
     if (attached.error) throw attached.error;
   }
+  async function saveFiringUpdate() {
+    if (!completingFiringId) return;
+    setFiringSaving(true);
+    const r = await sb.rpc("update_firing_setup", {
+      p_firing_id: completingFiringId,
+      p_cone: cone,
+      p_schedule: firingSchedule || null,
+      p_orientation: firingOrientation || null,
+      p_glazed_at: glazedDate || null,
+    });
+    if (r.error) {
+      setFiringSaving(false);
+      return setMsg(r.error.message);
+    }
+    try {
+      for (const f of beforePhoto) await uploadFiringPhoto(completingFiringId, f, "before");
+      for (const f of photo) await uploadFiringPhoto(completingFiringId, f, "after");
+    } catch (error: any) {
+      setFiringSaving(false);
+      await load();
+      return setMsg(`Firing updated, but a photo could not upload: ${error.message}`);
+    }
+    setFiringSaving(false);
+    setCompletingFiringId("");
+    setEditingHadResult(false);
+    setRecipe("");
+    setBeforePhoto([]);
+    setPhoto([]);
+    setJournalFormOpen(false);
+    setMsg("Firing updated ✓");
+    await load();
+  }
   async function fire(mode: "progress" | "complete") {
     if (!recipe) return setMsg("Choose a recipe.");
     const travel = travelDistance.trim() === "" ? null : Number(travelDistance);
@@ -3937,14 +3969,14 @@ export default function GlazeShelfApp({
                     {completingFiringId
                       ? editingHadResult
                         ? "Edit This Firing"
-                        : "Complete a Firing"
+                        : "Update or Complete This Firing"
                       : "Log a New Firing"}
                   </strong>
                   <small>
                     {completingFiringId
                       ? editingHadResult
                         ? "Update results or add more photos"
-                        : "Fill in what happened after the kiln opened"
+                        : "Save your changes, or complete it once it's fired"
                       : "Recipe, kiln details, results, and photos"}
                   </small>
                 </span>
@@ -4093,10 +4125,19 @@ export default function GlazeShelfApp({
                   onChange={(e) => setPhoto(Array.from(e.target.files ?? []))}
                 />
               </label>
-              {completingFiringId ? (
+              {completingFiringId && editingHadResult ? (
                 <button className="btn primary journal-save" disabled={firingSaving} onClick={() => fire("complete")}>
-                  {firingSaving ? "Saving…" : editingHadResult ? "Update Firing" : "Complete Firing"}
+                  {firingSaving ? "Saving…" : "Update Firing"}
                 </button>
+              ) : completingFiringId ? (
+                <div className="journal-save-actions">
+                  <button className="btn ghost" disabled={firingSaving} onClick={saveFiringUpdate}>
+                    {firingSaving ? "Saving…" : "Save Update"}
+                  </button>
+                  <button className="btn primary journal-save" disabled={firingSaving} onClick={() => fire("complete")}>
+                    {firingSaving ? "Saving…" : "Complete Firing"}
+                  </button>
+                </div>
               ) : (
                 <div className="journal-save-actions">
                   <button className="btn ghost" disabled={firingSaving} onClick={() => fire("progress")}>
