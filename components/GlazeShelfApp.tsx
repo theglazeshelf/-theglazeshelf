@@ -1306,6 +1306,19 @@ export default function GlazeShelfApp({
       await load();
     }
   }
+  async function deleteFiring(id: string, recipeName: string) {
+    if (
+      !window.confirm(
+        `Delete this firing of “${recipeName}”?\n\nThis permanently removes the firing log and any photos attached to it.`,
+      )
+    )
+      return;
+    const r = await sb.from("firings").delete().eq("id", id);
+    if (r.error) return setMsg(r.error.message);
+    if (firingDetail?.firing_id === id) setFiringDetail(null);
+    setMsg("Firing deleted ✓");
+    await load();
+  }
   async function toggleRecipeStudioShare(recipeId: string, currentlyShared: boolean) {
     if (!currentStudio) return setMsg("Join or create a studio first.");
     setSharingRecipeId(recipeId);
@@ -4158,11 +4171,19 @@ export default function GlazeShelfApp({
                               : "Share in Explore"}
                       </button>
                     </div>
+                    <button className="btn delete-btn" onClick={() => deleteFiring(f.firing_id, f.recipe_name)}>
+                      Delete Firing
+                    </button>
                   </>
                 ) : (
-                  <button className="btn primary firing-detail-button" onClick={() => startEditingFiring(f)}>
-                    Complete This Firing <ArrowRight size={16} />
-                  </button>
+                  <>
+                    <button className="btn primary firing-detail-button" onClick={() => startEditingFiring(f)}>
+                      Complete This Firing <ArrowRight size={16} />
+                    </button>
+                    <button className="btn delete-btn" onClick={() => deleteFiring(f.firing_id, f.recipe_name)}>
+                      Delete Firing
+                    </button>
+                  </>
                 )}
               </details>
             ))}
