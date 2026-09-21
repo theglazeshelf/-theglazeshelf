@@ -221,6 +221,8 @@ export default function GlazeShelfApp({
     [cropNatural, setCropNatural] = useState({ w: 0, h: 0 }),
     [cropZoom, setCropZoom] = useState(1),
     [cropOffset, setCropOffset] = useState({ x: 0, y: 0 }),
+    [cropTarget, setCropTarget] = useState<"profile" | "studio">("profile"),
+    [studioPhotoUploading, setStudioPhotoUploading] = useState(false),
     [profilePreview, setProfilePreview] = useState(""),
     [profileDefaultCone, setProfileDefaultCone] = useState("6"),
     [profileStudio, setProfileStudio] = useState(""),
@@ -670,6 +672,22 @@ export default function GlazeShelfApp({
     if (file.size > 5 * 1024 * 1024)
       return setMsg("Choose a profile picture smaller than 5 MB.");
     if (cropSrc) URL.revokeObjectURL(cropSrc);
+    setCropTarget("profile");
+    setCropZoom(1);
+    setCropOffset({ x: 0, y: 0 });
+    setCropSrc(URL.createObjectURL(file));
+    setMsg("");
+  }
+  function chooseStudioPhoto(file?: File) {
+    if (!file) return;
+    if (!currentStudio) return setMsg("Join or create a studio first.");
+    const allowed = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
+    if (!allowed.includes(file.type))
+      return setMsg("Choose a JPG, PNG, WebP, or HEIC image.");
+    if (file.size > 5 * 1024 * 1024)
+      return setMsg("Choose a studio photo smaller than 5 MB.");
+    if (cropSrc) URL.revokeObjectURL(cropSrc);
+    setCropTarget("studio");
     setCropZoom(1);
     setCropOffset({ x: 0, y: 0 });
     setCropSrc(URL.createObjectURL(file));
@@ -754,8 +772,30 @@ export default function GlazeShelfApp({
       if (!ctx) return;
       ctx.drawImage(img, sourceX, sourceY, sSize, sSize, 0, 0, OUT, OUT);
       canvas.toBlob(
-        (blob) => {
+        async (blob) => {
           if (!blob) return;
+          if (cropTarget === "studio" && currentStudio) {
+            setStudioPhotoUploading(true);
+            const path = `studio/${currentStudio.studio_id}/logo.jpg`;
+            const up = await sb.storage
+              .from("profile-photos")
+              .upload(path, blob, { upsert: true, contentType: "image/jpeg" });
+            if (up.error) {
+              setStudioPhotoUploading(false);
+              cancelCrop();
+              return setMsg(up.error.message);
+            }
+            const pub = sb.storage.from("profile-photos").getPublicUrl(path);
+            const r = await sb.rpc("update_studio_photo", {
+              p_studio_id: currentStudio.studio_id,
+              p_photo_url: `${pub.data.publicUrl}?v=${Date.now()}`,
+            });
+            setStudioPhotoUploading(false);
+            cancelCrop();
+            if (r.error) return setMsg(r.error.message);
+            setMsg("Studio photo updated ✓");
+            return await load();
+          }
           const cropped = new File([blob], "profile-photo.jpg", {
             type: "image/jpeg",
             lastModified: Date.now(),
@@ -2060,9 +2100,13 @@ export default function GlazeShelfApp({
             </div>
 
             <section className="home-current-studio">
-              <span className="home-studio-pin" aria-hidden="true">
-                <MapPin size={25} strokeWidth={2.5} />
-              </span>
+              {currentStudio?.photo_url ? (
+                <img className="home-studio-pin-photo" src={currentStudio.photo_url} alt="" />
+              ) : (
+                <span className="home-studio-pin" aria-hidden="true">
+                  <MapPin size={25} strokeWidth={2.5} />
+                </span>
+              )}
               <button
                 className="home-studio-main"
                 type="button"
@@ -2125,13 +2169,38 @@ export default function GlazeShelfApp({
                       key={item.studio_id}
                       onClick={() => chooseHomeStudio(item.studio_id)}
                     >
-                      <span>
-                        <strong>{item.name}</strong>
-                        <small>{item.role === "owner" ? "You created this studio" : "Member"}</small>
+                      <span className="row" style={{ gap: 10 }}>
+                        {item.photo_url ? (
+                          <img className="studio-logo" src={item.photo_url} alt="" />
+                        ) : (
+                          <span className="studio-logo studio-logo-placeholder" aria-hidden="true">
+                            {item.name?.[0]?.toUpperCase() || "?"}
+                          </span>
+                        )}
+                        <span>
+                          <strong>{item.name}</strong>
+                          <small>{item.role === "owner" ? "You created this studio" : "Member"}</small>
+                        </span>
                       </span>
                       <span>{item.studio_id === currentStudio?.studio_id ? "Current" : "Choose →"}</span>
                     </button>
                   ))}
+                  {currentStudio?.role === "owner" && (
+                    <label className="btn ghost studio-photo-upload">
+                      {studioPhotoUploading
+                        ? "Uploading…"
+                        : currentStudio.photo_url
+                          ? `Change ${currentStudio.name}'s Photo`
+                          : `Add a Photo for ${currentStudio.name}`}
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+                        style={{ display: "none" }}
+                        disabled={studioPhotoUploading}
+                        onChange={(e) => chooseStudioPhoto(e.target.files?.[0])}
+                      />
+                    </label>
+                  )}
                   {currentStudio?.role === "owner" && (
                     <button className="btn ghost" onClick={() => invite(currentStudio.studio_id)}>
                       Invite Someone to {currentStudio.name}
@@ -2271,7 +2340,7 @@ export default function GlazeShelfApp({
               {cropSrc && typeof document !== "undefined" && createPortal(
                 <div className="overlay crop-overlay" onClick={cancelCrop}>
                   <div className="crop-sheet" onClick={(e) => e.stopPropagation()}>
-                    <h2>Adjust Your Photo</h2>
+                    <h2>{cropTarget === "studio" ? "Adjust Studio Photo" : "Adjust Your Photo"}</h2>
                     <p className="muted">Drag to reposition, use the slider to zoom.</p>
                     <div
                       className="crop-viewport"
