@@ -430,6 +430,9 @@
 
 /* Recipe prediction and firing learning loop */
 .recipe-card-heading{align-items:flex-start}
+.recipe-card-summary{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;cursor:pointer;list-style:revert}
+.recipe-card-summary::marker{color:var(--purple)}
+details.recipe-card[open] .recipe-card-summary{margin-bottom:4px}
 .prediction-risk{display:inline-flex;flex:0 0 auto;border-radius:999px;padding:6px 9px;background:#fff0dc;color:#8a571f;font-size:.7rem;font-weight:850}
 .recipe-card-stats{display:flex;flex-wrap:wrap;gap:7px;margin:11px 0}
 .recipe-card-stats span{border-radius:999px;padding:6px 9px;background:#f2f4f3;color:var(--muted);font-size:.72rem;font-weight:750}
