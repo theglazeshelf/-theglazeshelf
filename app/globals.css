@@ -476,6 +476,9 @@ details.recipe-card[open] .recipe-card-summary{margin-bottom:4px}
 .journal-section-divider{height:1px;margin:5px 0;background:#17324d14}
 .photo-input-grid .input{padding:10px;font-size:.72rem}
 .journal-save{display:flex;justify-content:center;width:100%;margin-top:4px;background:linear-gradient(135deg,var(--purple),#7655dd);box-shadow:0 9px 21px #6450c82c}
+.journal-save-actions{display:flex;gap:8px;margin-top:4px}
+.journal-save-actions .btn{flex:1;display:flex;align-items:center;justify-content:center}
+.journal-save-actions .journal-save{margin-top:0}
 .journal-history-heading{display:flex;align-items:baseline;justify-content:space-between;margin:19px 3px 8px}
 .journal-history-heading strong{font-size:1.04rem}
 .journal-history-heading span{color:var(--muted);font-size:.75rem;font-weight:750}
@@ -491,6 +494,7 @@ details.firing-card[open] .firing-card-summary{margin-bottom:4px}
 .explore-card-extra[open] summary{margin-bottom:8px}
 .explore-card-extra p{color:var(--muted);font-size:.78rem;margin:6px 0}
 .firing-rating{display:grid;place-items:center;min-width:46px;border-radius:12px;padding:8px;background:var(--purple-soft);color:var(--purple);font-size:.76rem;font-weight:900}
+.firing-in-progress{display:grid;place-items:center;border-radius:999px;padding:6px 11px;background:#fff1bf;color:#7a5c0a;font-size:.7rem;font-weight:900;white-space:nowrap}
 .firing-card-badges{display:flex;flex-wrap:wrap;gap:6px;margin:11px 0}
 .firing-card-badges span{border-radius:999px;padding:5px 8px;background:#eff3f2;color:var(--muted);font-size:.68rem;font-weight:800}
 .firing-card-badges span.is-shared{background:var(--purple-soft);color:var(--purple)}
