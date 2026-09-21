@@ -150,6 +150,10 @@ export default function GlazeShelfApp({
     [firingDate, setFiringDate] = useState(
       new Date().toISOString().slice(0, 10),
     ),
+    [glazedDate, setGlazedDate] = useState(
+      new Date().toISOString().slice(0, 10),
+    ),
+    [completingFiringId, setCompletingFiringId] = useState(""),
     [firingSchedule, setFiringSchedule] = useState("Standard / medium"),
     [firingOrientation, setFiringOrientation] = useState("vertical"),
     [movement, setMovement] = useState(""),
@@ -376,6 +380,7 @@ export default function GlazeShelfApp({
     setRecipeDetail([]);
     setInventoryItem(null);
     setStudioRecipesOpen(false);
+    setCompletingFiringId("");
   }, [tab]);
   useEffect(() => {
     if (session) {
@@ -1390,7 +1395,9 @@ export default function GlazeShelfApp({
     setRecipe(id);
     if (recipeCone) setCone(Number(recipeCone));
     setRecipeDetail([]);
-    setFiringDate(new Date().toISOString().slice(0, 10));
+    setCompletingFiringId("");
+    setGlazedDate(new Date().toISOString().slice(0, 10));
+    setFiringDate("");
     setFiringSchedule("Standard / medium");
     setFiringOrientation("vertical");
     setMovement("");
@@ -1404,6 +1411,26 @@ export default function GlazeShelfApp({
     setPhoto(null);
     setJournalFormOpen(true);
     setTab("journal");
+    window.requestAnimationFrame(() => window.scrollTo(0, 0));
+  }
+  function startCompletingFiring(f: any) {
+    setCompletingFiringId(f.firing_id);
+    setRecipe(f.recipe_id);
+    setCone(f.cone || 6);
+    setGlazedDate(f.glazed_at || "");
+    setFiringDate(new Date().toISOString().slice(0, 10));
+    setFiringSchedule(f.schedule || "Standard / medium");
+    setFiringOrientation(f.orientation || "vertical");
+    setMovement("");
+    setTravelDistance("");
+    setColorResult("");
+    setSurfaceResult("");
+    setDefects("");
+    setFiringNotes("");
+    setRating(5);
+    setBeforePhoto(null);
+    setPhoto(null);
+    setJournalFormOpen(true);
     window.requestAnimationFrame(() => window.scrollTo(0, 0));
   }
   async function uploadFiringPhoto(
@@ -1429,17 +1456,57 @@ export default function GlazeShelfApp({
     });
     if (attached.error) throw attached.error;
   }
-  async function fire() {
+  async function fire(mode: "progress" | "complete") {
     if (!recipe) return setMsg("Choose a recipe.");
-    if (!firingDate) return setMsg("Choose the firing date.");
     const travel = travelDistance.trim() === "" ? null : Number(travelDistance);
     if (travel != null && (!Number.isFinite(travel) || travel < 0)) {
       return setMsg("Movement distance must be zero or more.");
     }
+    if (mode === "complete" && !firingDate) {
+      return setMsg("Choose the fired-on date to complete this firing.");
+    }
     setFiringSaving(true);
+
+    if (completingFiringId) {
+      const r = await sb.rpc("complete_firing_result", {
+        p_firing_id: completingFiringId,
+        p_fired_at: new Date(`${firingDate}T12:00:00`).toISOString(),
+        p_movement_result: movement || null,
+        p_travel_mm: travel,
+        p_color_result: colorResult || null,
+        p_surface_result: surfaceResult || null,
+        p_defects: defects || null,
+        p_rating: rating,
+        p_notes: firingNotes || null,
+      });
+      if (r.error) {
+        setFiringSaving(false);
+        return setMsg(r.error.message);
+      }
+      try {
+        if (beforePhoto) await uploadFiringPhoto(completingFiringId, beforePhoto, "before");
+        if (photo) await uploadFiringPhoto(completingFiringId, photo, "after");
+      } catch (error: any) {
+        setFiringSaving(false);
+        await load();
+        return setMsg(`Firing completed, but a photo could not upload: ${error.message}`);
+      }
+      setFiringSaving(false);
+      setCompletingFiringId("");
+      setRecipe("");
+      setBeforePhoto(null);
+      setPhoto(null);
+      setJournalFormOpen(false);
+      setMsg("Firing completed ✓");
+      return await load();
+    }
+
     const r = await sb.rpc("log_firing_v2", {
       p_recipe_id: recipe,
-      p_fired_at: new Date(`${firingDate}T12:00:00`).toISOString(),
+      p_fired_at:
+        mode === "complete"
+          ? new Date(`${firingDate}T12:00:00`).toISOString()
+          : null,
       p_cone: cone,
       p_schedule: firingSchedule || null,
       p_orientation: firingOrientation || null,
@@ -1450,6 +1517,7 @@ export default function GlazeShelfApp({
       p_defects: defects || null,
       p_rating: rating,
       p_notes: firingNotes || null,
+      p_glazed_at: glazedDate || null,
     });
     if (r.error) {
       setFiringSaving(false);
@@ -1468,7 +1536,7 @@ export default function GlazeShelfApp({
     setBeforePhoto(null);
     setPhoto(null);
     setJournalFormOpen(false);
-    setMsg("Firing result saved ✓");
+    setMsg(mode === "progress" ? "Firing saved as in progress ✓" : "Firing result saved ✓");
     await load();
   }
   async function toggleFiringShare(firingId: string, nextShared: boolean, photoCount: number) {
@@ -3832,14 +3900,20 @@ export default function GlazeShelfApp({
             <details
               className="card journal-entry-panel"
               open={journalFormOpen}
-              onToggle={(event) =>
-                setJournalFormOpen(event.currentTarget.open)
-              }
+              onToggle={(event) => {
+                const open = event.currentTarget.open;
+                setJournalFormOpen(open);
+                if (!open) setCompletingFiringId("");
+              }}
             >
               <summary className="journal-entry-summary">
                 <span>
-                  <strong>Log a New Firing</strong>
-                  <small>Recipe, kiln details, results, and photos</small>
+                  <strong>{completingFiringId ? "Complete a Firing" : "Log a New Firing"}</strong>
+                  <small>
+                    {completingFiringId
+                      ? "Fill in what happened after the kiln opened"
+                      : "Recipe, kiln details, results, and photos"}
+                  </small>
                 </span>
                 <span className="journal-entry-toggle">
                   {journalFormOpen ? "Close" : "+ Add Firing"}
@@ -3852,6 +3926,7 @@ export default function GlazeShelfApp({
                 <select
                   className="select"
                   value={recipe}
+                  disabled={!!completingFiringId}
                   onChange={(e) => {
                     setRecipe(e.target.value);
                     const chosen = recipes.find(
@@ -3870,8 +3945,8 @@ export default function GlazeShelfApp({
               </label>
               <div className="journal-two-column">
                 <label className="field-label">
-                  Firing Date
-                  <input className="input" type="date" value={firingDate} onChange={(e) => setFiringDate(e.target.value)} />
+                  Glazed On
+                  <input className="input" type="date" disabled={!!completingFiringId} value={glazedDate} onChange={(e) => setGlazedDate(e.target.value)} />
                 </label>
                 <label className="field-label">
                   Kiln Schedule
@@ -3888,6 +3963,7 @@ export default function GlazeShelfApp({
                 <label className="field-label">
                   Glaze Firing Cone
                   <select className="select" value={cone} onChange={(e) => setCone(+e.target.value)}>
+                    <option value="0">N/A</option>
                     {[5, 6, 7, 8, 9, 10].map((value) => (
                       <option key={value} value={value}>Cone {value}</option>
                     ))}
@@ -3896,6 +3972,7 @@ export default function GlazeShelfApp({
                 <label className="field-label">
                   Bisque Firing Cone
                   <select className="select" value={bisqueCone} onChange={(e) => setBisqueCone(e.target.value)}>
+                    <option value="">N/A</option>
                     <option value="010">Cone 010</option>
                     <option value="08">Cone 08</option>
                     <option value="06">Cone 06</option>
@@ -3914,6 +3991,10 @@ export default function GlazeShelfApp({
               </label>
               <div className="journal-section-divider" />
               <span className="journal-step">2 · What happened</span>
+              <label className="field-label">
+                Fired On
+                <input className="input" type="date" value={firingDate} onChange={(e) => setFiringDate(e.target.value)} />
+              </label>
               <label className="field-label">
                 Movement After Firing
                 <textarea className="textarea" placeholder="Describe running, pooling, breaking, or movement" value={movement} onChange={(e) => setMovement(e.target.value)} />
@@ -3969,9 +4050,20 @@ export default function GlazeShelfApp({
                   <input className="input" type="file" accept="image/*" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} />
                 </label>
               </div>
-              <button className="btn primary journal-save" disabled={firingSaving} onClick={fire}>
-                {firingSaving ? "Saving Firing…" : "Save Firing Result"}
-              </button>
+              {completingFiringId ? (
+                <button className="btn primary journal-save" disabled={firingSaving} onClick={() => fire("complete")}>
+                  {firingSaving ? "Saving…" : "Complete Firing"}
+                </button>
+              ) : (
+                <div className="journal-save-actions">
+                  <button className="btn ghost" disabled={firingSaving} onClick={() => fire("progress")}>
+                    {firingSaving ? "Saving…" : "Save as In Progress"}
+                  </button>
+                  <button className="btn primary journal-save" disabled={firingSaving} onClick={() => fire("complete")}>
+                    {firingSaving ? "Saving…" : "Save Firing Result"}
+                  </button>
+                </div>
+              )}
               </div>
             </details>
             <div className="journal-history-heading">
@@ -3990,39 +4082,55 @@ export default function GlazeShelfApp({
                   <div>
                     <strong>{f.recipe_name}</strong>
                     <div className="muted">
-                      {f.fired_at ? new Date(f.fired_at).toLocaleDateString() : "Date not recorded"}
+                      {f.fired_at
+                        ? new Date(f.fired_at).toLocaleDateString()
+                        : f.glazed_at
+                          ? "Glazed " + new Date(f.glazed_at + "T12:00:00").toLocaleDateString()
+                          : "Date not recorded"}
                       {f.cone != null ? ` • Cone ${f.cone}` : ""}
                     </div>
                   </div>
-                  <span className="firing-rating">{f.rating || "—"}/5</span>
+                  {f.fired_at ? (
+                    <span className="firing-rating">{f.rating || "—"}/5</span>
+                  ) : (
+                    <span className="firing-in-progress">In Progress</span>
+                  )}
                 </summary>
-                <div className="firing-card-badges">
-                  <span>E{f.evidence_tier} evidence</span>
-                  {f.photo_count > 0 && <span>{f.photo_count} {Number(f.photo_count) === 1 ? "photo" : "photos"}</span>}
-                  {f.prediction_movement_risk != null && <span>Predicted risk {f.prediction_movement_risk}/10</span>}
-                  {f.shared && <span className="is-shared">Shared in Explore</span>}
-                </div>
-                {f.movement_result && <p>{f.movement_result}</p>}
-                <div className="firing-card-actions">
-                  <button className="btn secondary firing-detail-button" onClick={() => openFiringDetail(f.firing_id)}>
-                    Compare Prediction &amp; Result <ArrowRight size={16} />
+                {f.fired_at ? (
+                  <>
+                    <div className="firing-card-badges">
+                      <span>E{f.evidence_tier} evidence</span>
+                      {f.photo_count > 0 && <span>{f.photo_count} {Number(f.photo_count) === 1 ? "photo" : "photos"}</span>}
+                      {f.prediction_movement_risk != null && <span>Predicted risk {f.prediction_movement_risk}/10</span>}
+                      {f.shared && <span className="is-shared">Shared in Explore</span>}
+                    </div>
+                    {f.movement_result && <p>{f.movement_result}</p>}
+                    <div className="firing-card-actions">
+                      <button className="btn secondary firing-detail-button" onClick={() => openFiringDetail(f.firing_id)}>
+                        Compare Prediction &amp; Result <ArrowRight size={16} />
+                      </button>
+                      <button
+                        className={"btn firing-share-button " + (f.shared ? "is-shared" : "ghost")}
+                        disabled={sharingFiringId === f.firing_id || (!f.shared && Number(f.photo_count) < 1)}
+                        title={!f.shared && Number(f.photo_count) < 1 ? "Add a photo before sharing" : ""}
+                        onClick={() => toggleFiringShare(f.firing_id, !f.shared, Number(f.photo_count))}
+                      >
+                        <Share2 size={16} />
+                        {sharingFiringId === f.firing_id
+                          ? "Updating…"
+                          : f.shared
+                            ? "Remove from Explore"
+                            : Number(f.photo_count) < 1
+                              ? "Add photo to share"
+                              : "Share in Explore"}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <button className="btn primary firing-detail-button" onClick={() => startCompletingFiring(f)}>
+                    Complete This Firing <ArrowRight size={16} />
                   </button>
-                  <button
-                    className={"btn firing-share-button " + (f.shared ? "is-shared" : "ghost")}
-                    disabled={sharingFiringId === f.firing_id || (!f.shared && Number(f.photo_count) < 1)}
-                    title={!f.shared && Number(f.photo_count) < 1 ? "Add a photo before sharing" : ""}
-                    onClick={() => toggleFiringShare(f.firing_id, !f.shared, Number(f.photo_count))}
-                  >
-                    <Share2 size={16} />
-                    {sharingFiringId === f.firing_id
-                      ? "Updating…"
-                      : f.shared
-                        ? "Remove from Explore"
-                        : Number(f.photo_count) < 1
-                          ? "Add photo to share"
-                          : "Share in Explore"}
-                  </button>
-                </div>
+                )}
               </details>
             ))}
           </>
