@@ -4219,7 +4219,7 @@ export default function GlazeShelfApp({
                 ) : (
                   <>
                     <button className="btn primary firing-detail-button" onClick={() => startEditingFiring(f)}>
-                      Complete This Firing <ArrowRight size={16} />
+                      Update or Complete This Firing <ArrowRight size={16} />
                     </button>
                     <button className="btn delete-btn" onClick={() => deleteFiring(f.firing_id, f.recipe_name)}>
                       Delete Firing
