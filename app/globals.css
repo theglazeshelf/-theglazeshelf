@@ -277,6 +277,7 @@
 .account-photo-remove:disabled{cursor:wait;opacity:.55}
 .account-photo-input{display:none}
 .crop-sheet{width:min(420px,100%);border-radius:24px;padding:22px 20px calc(24px + env(safe-area-inset-bottom));background:#fff;box-shadow:0 -14px 42px #17324d30;text-align:center}
+.crop-overlay{z-index:65}
 .crop-sheet h2{margin:0 0 4px;font-size:1.3rem}
 .crop-sheet p{margin:0 0 6px}
 .crop-viewport{position:relative;width:280px;height:280px;margin:16px auto;border-radius:50%;overflow:hidden;background:#111;touch-action:none;cursor:grab}
