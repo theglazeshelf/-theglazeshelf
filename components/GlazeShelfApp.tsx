@@ -154,6 +154,7 @@ export default function GlazeShelfApp({
       new Date().toISOString().slice(0, 10),
     ),
     [completingFiringId, setCompletingFiringId] = useState(""),
+    [editingHadResult, setEditingHadResult] = useState(false),
     [firingSchedule, setFiringSchedule] = useState("Standard / medium"),
     [firingOrientation, setFiringOrientation] = useState("vertical"),
     [movement, setMovement] = useState(""),
@@ -381,6 +382,7 @@ export default function GlazeShelfApp({
     setInventoryItem(null);
     setStudioRecipesOpen(false);
     setCompletingFiringId("");
+    setEditingHadResult(false);
   }, [tab]);
   useEffect(() => {
     if (session) {
@@ -1396,6 +1398,7 @@ export default function GlazeShelfApp({
     if (recipeCone) setCone(Number(recipeCone));
     setRecipeDetail([]);
     setCompletingFiringId("");
+    setEditingHadResult(false);
     setGlazedDate(new Date().toISOString().slice(0, 10));
     setFiringDate("");
     setFiringSchedule("Standard / medium");
@@ -1413,21 +1416,26 @@ export default function GlazeShelfApp({
     setTab("journal");
     window.requestAnimationFrame(() => window.scrollTo(0, 0));
   }
-  function startCompletingFiring(f: any) {
+  function startEditingFiring(f: any) {
     setCompletingFiringId(f.firing_id);
+    setEditingHadResult(!!f.fired_at);
     setRecipe(f.recipe_id);
     setCone(f.cone || 6);
     setGlazedDate(f.glazed_at || "");
-    setFiringDate(new Date().toISOString().slice(0, 10));
+    setFiringDate(
+      f.fired_at
+        ? new Date(f.fired_at).toISOString().slice(0, 10)
+        : new Date().toISOString().slice(0, 10),
+    );
     setFiringSchedule(f.schedule || "Standard / medium");
     setFiringOrientation(f.orientation || "vertical");
-    setMovement("");
-    setTravelDistance("");
-    setColorResult("");
-    setSurfaceResult("");
-    setDefects("");
-    setFiringNotes("");
-    setRating(5);
+    setMovement(f.movement_result || "");
+    setTravelDistance(f.travel_mm != null ? String(f.travel_mm) : "");
+    setColorResult(f.color_result || "");
+    setSurfaceResult(f.surface_result || "");
+    setDefects(f.defects || "");
+    setFiringNotes(f.notes || "");
+    setRating(f.rating || 5);
     setBeforePhoto([]);
     setPhoto([]);
     setJournalFormOpen(true);
@@ -1493,6 +1501,7 @@ export default function GlazeShelfApp({
       }
       setFiringSaving(false);
       setCompletingFiringId("");
+      setEditingHadResult(false);
       setRecipe("");
       setBeforePhoto([]);
       setPhoto([]);
@@ -3903,15 +3912,26 @@ export default function GlazeShelfApp({
               onToggle={(event) => {
                 const open = event.currentTarget.open;
                 setJournalFormOpen(open);
-                if (!open) setCompletingFiringId("");
+                if (!open) {
+                  setCompletingFiringId("");
+                  setEditingHadResult(false);
+                }
               }}
             >
               <summary className="journal-entry-summary">
                 <span>
-                  <strong>{completingFiringId ? "Complete a Firing" : "Log a New Firing"}</strong>
+                  <strong>
+                    {completingFiringId
+                      ? editingHadResult
+                        ? "Edit This Firing"
+                        : "Complete a Firing"
+                      : "Log a New Firing"}
+                  </strong>
                   <small>
                     {completingFiringId
-                      ? "Fill in what happened after the kiln opened"
+                      ? editingHadResult
+                        ? "Update results or add more photos"
+                        : "Fill in what happened after the kiln opened"
                       : "Recipe, kiln details, results, and photos"}
                   </small>
                 </span>
@@ -4062,7 +4082,7 @@ export default function GlazeShelfApp({
               </label>
               {completingFiringId ? (
                 <button className="btn primary journal-save" disabled={firingSaving} onClick={() => fire("complete")}>
-                  {firingSaving ? "Saving…" : "Complete Firing"}
+                  {firingSaving ? "Saving…" : editingHadResult ? "Update Firing" : "Complete Firing"}
                 </button>
               ) : (
                 <div className="journal-save-actions">
@@ -4119,6 +4139,9 @@ export default function GlazeShelfApp({
                       <button className="btn secondary firing-detail-button" onClick={() => openFiringDetail(f.firing_id)}>
                         Compare Prediction &amp; Result <ArrowRight size={16} />
                       </button>
+                      <button className="btn ghost firing-detail-button" onClick={() => startEditingFiring(f)}>
+                        Edit This Firing
+                      </button>
                       <button
                         className={"btn firing-share-button " + (f.shared ? "is-shared" : "ghost")}
                         disabled={sharingFiringId === f.firing_id || (!f.shared && Number(f.photo_count) < 1)}
@@ -4137,7 +4160,7 @@ export default function GlazeShelfApp({
                     </div>
                   </>
                 ) : (
-                  <button className="btn primary firing-detail-button" onClick={() => startCompletingFiring(f)}>
+                  <button className="btn primary firing-detail-button" onClick={() => startEditingFiring(f)}>
                     Complete This Firing <ArrowRight size={16} />
                   </button>
                 )}
