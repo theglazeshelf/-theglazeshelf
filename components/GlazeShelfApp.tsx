@@ -980,6 +980,7 @@ export default function GlazeShelfApp({
   }
   async function joinStudio() {
     setJoinMsg("");
+    if (!join.trim()) return setJoinMsg("Enter an invite code first.");
     const r = await sb.rpc("join_studio_by_code", { p_code: join });
     if (r.error) setJoinMsg(r.error.message);
     else {
@@ -2552,7 +2553,7 @@ export default function GlazeShelfApp({
                   <div className="studio-divider"><span>or join one</span></div>
                   <label className="field-label">
                     Invite Code
-                    <input className="input" placeholder="Enter invite code" value={join} onChange={(e) => setJoin(e.target.value)} />
+                    <input className="input" placeholder="Enter invite code" autoComplete="off" autoCorrect="off" autoCapitalize="characters" spellCheck={false} value={join} onChange={(e) => setJoin(e.target.value)} />
                   </label>
                   <button className="btn ghost" onClick={joinStudio}>Join Studio</button>
                   {joinMsg && <div className="notice join-studio-notice">{joinMsg}</div>}
