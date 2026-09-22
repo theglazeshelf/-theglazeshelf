@@ -145,6 +145,7 @@ export default function GlazeShelfApp({
     [studioRecipesList, setStudioRecipesList] = useState<any[]>([]),
     [studioRecipesLoading, setStudioRecipesLoading] = useState(false),
     [inviteCodeShown, setInviteCodeShown] = useState(""),
+    [codeCopied, setCodeCopied] = useState(false),
     [showTransferPanel, setShowTransferPanel] = useState(false),
     [studioMembers, setStudioMembers] = useState<any[]>([]),
     [transferTargetId, setTransferTargetId] = useState(""),
@@ -1001,14 +1002,32 @@ export default function GlazeShelfApp({
     await load(id);
   }
   async function invite(id: string) {
+    if (currentStudio?.join_code) {
+      setInviteCodeShown(currentStudio.join_code);
+      return;
+    }
     const r = await sb.rpc("regenerate_studio_join_code", { p_studio_id: id });
     if (r.error) return setMsg(r.error.message);
     setInviteCodeShown(r.data || "");
+    await load();
+  }
+  async function regenerateInviteCode(id: string) {
+    if (
+      !window.confirm(
+        "Generate a new code? Anyone who hasn't joined with the old code yet won't be able to use it anymore.",
+      )
+    )
+      return;
+    const r = await sb.rpc("regenerate_studio_join_code", { p_studio_id: id });
+    if (r.error) return setMsg(r.error.message);
+    setInviteCodeShown(r.data || "");
+    await load();
   }
   async function copyInviteCode() {
     try {
       await navigator.clipboard.writeText(inviteCodeShown);
-      setMsg("Invite code copied ✓");
+      setCodeCopied(true);
+      setTimeout(() => setCodeCopied(false), 2000);
     } catch {
       setMsg("Could not copy — select and copy the code manually.");
     }
@@ -2339,13 +2358,25 @@ export default function GlazeShelfApp({
                       <span className="eyebrow">INVITE CODE</span>
                       <strong className="invite-code-value">{inviteCodeShown}</strong>
                       <div className="invite-code-actions">
-                        <button className="btn primary" onClick={copyInviteCode}>
-                          Copy Code
+                        <button className={"btn " + (codeCopied ? "is-shared" : "primary")} onClick={copyInviteCode}>
+                          {codeCopied ? "Copied ✓" : "Copy Code"}
                         </button>
-                        <button className="btn ghost" onClick={() => setInviteCodeShown("")}>
+                        <button
+                          className="btn ghost"
+                          onClick={() => {
+                            setInviteCodeShown("");
+                            setCodeCopied(false);
+                          }}
+                        >
                           Done
                         </button>
                       </div>
+                      <button
+                        className="btn ghost invite-code-regenerate"
+                        onClick={() => regenerateInviteCode(currentStudio.studio_id)}
+                      >
+                        Generate New Code
+                      </button>
                     </div>
                   )}
                   {currentStudio?.role === "owner" && !showTransferPanel && (
