@@ -10,6 +10,9 @@
 .invite-code-edit-link{width:100%;margin-top:8px;font-size:.78rem}
 .invite-code-actions .btn{flex:1}
 .transfer-ownership-card{border:1px solid #6450c832}
+.delete-studio-link{color:#a33b32;border-color:#a33b3230}
+.delete-studio-card{border:1px solid #a33b3235;background:#fdf3f1}
+.delete-studio-card .eyebrow{color:#a33b32}
 .transfer-ownership-card p{margin:6px 0 12px}
 .transfer-ownership-actions{display:flex;gap:10px;margin-top:6px}
 .transfer-ownership-actions .btn{flex:1}
@@ -334,6 +337,9 @@
 .material-list-scroll{max-height:58vh;overflow-y:auto;padding-right:3px}
 .home-shell{overflow:hidden;padding-top:calc(8px + env(safe-area-inset-top));background:linear-gradient(180deg,#fff 0%,#fbfcff 72%,#fff 100%)}
 .home-brand-header{display:flex;align-items:center;justify-content:space-between;gap:14px;min-height:76px;padding:0 2px 5px}
+.home-header-actions{display:flex;align-items:center;gap:8px}
+.home-signout{display:grid;place-items:center;flex:0 0 40px;width:40px;height:40px;border:1px solid #6450c82b;border-radius:50%;background:#fff;color:var(--muted);cursor:pointer}
+.home-signout:hover{color:#a33b32}
 .home-brand-logo{display:block;width:min(270px,calc(100% - 58px));height:auto}
 .home-brand-header .home-account{flex:0 0 44px;width:44px;height:44px;border-color:#6a50d42d;box-shadow:0 6px 18px #4628a50b}
 .home-glaze-stage{position:relative;isolation:isolate;margin:2px 0 12px;overflow:hidden;border-radius:29px 29px 26px 26px;background:linear-gradient(150deg,#f3efff 0%,#eaf2ff 42%,#d8f5f3 100%)}
