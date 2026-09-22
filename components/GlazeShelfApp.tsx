@@ -986,6 +986,7 @@ export default function GlazeShelfApp({
     else {
       setJoin("");
       setJoinMsg("Studio joined ✓");
+      setTimeout(() => setJoinMsg(""), 5000);
       await load(r.data);
     }
   }
