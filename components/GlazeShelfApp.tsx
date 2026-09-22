@@ -147,6 +147,8 @@ export default function GlazeShelfApp({
     [studioRecipesLoading, setStudioRecipesLoading] = useState(false),
     [inviteCodeShown, setInviteCodeShown] = useState(""),
     [codeCopied, setCodeCopied] = useState(false),
+    [editingInviteCode, setEditingInviteCode] = useState(false),
+    [customCodeInput, setCustomCodeInput] = useState(""),
     [showTransferPanel, setShowTransferPanel] = useState(false),
     [studioMembers, setStudioMembers] = useState<any[]>([]),
     [transferTargetId, setTransferTargetId] = useState(""),
@@ -1020,6 +1022,17 @@ export default function GlazeShelfApp({
     } catch {
       setMsg("Could not copy — select and copy the code manually.");
     }
+  }
+  async function saveCustomInviteCode(studioId: string) {
+    const r = await sb.rpc("set_studio_join_code", {
+      p_studio_id: studioId,
+      p_code: customCodeInput,
+    });
+    if (r.error) return setMsg(r.error.message);
+    setInviteCodeShown(r.data || "");
+    setEditingInviteCode(false);
+    setCustomCodeInput("");
+    await load();
   }
   async function openTransferPanel(studioId: string) {
     setShowTransferPanel(true);
@@ -2347,21 +2360,61 @@ export default function GlazeShelfApp({
                   {inviteCodeShown && (
                     <div className="card invite-code-card">
                       <span className="eyebrow">INVITE CODE</span>
-                      <strong className="invite-code-value">{inviteCodeShown}</strong>
-                      <div className="invite-code-actions">
-                        <button className={"btn " + (codeCopied ? "is-shared" : "primary")} onClick={copyInviteCode}>
-                          {codeCopied ? "Copied ✓" : "Copy Code"}
-                        </button>
-                        <button
-                          className="btn ghost"
-                          onClick={() => {
-                            setInviteCodeShown("");
-                            setCodeCopied(false);
-                          }}
-                        >
-                          Done
-                        </button>
-                      </div>
+                      {editingInviteCode ? (
+                        <>
+                          <input
+                            className="input invite-code-input"
+                            placeholder="6-20 characters"
+                            maxLength={20}
+                            value={customCodeInput}
+                            onChange={(e) => setCustomCodeInput(e.target.value.toUpperCase())}
+                          />
+                          <div className="invite-code-actions">
+                            <button
+                              className="btn primary"
+                              onClick={() => saveCustomInviteCode(currentStudio.studio_id)}
+                            >
+                              Save Code
+                            </button>
+                            <button
+                              className="btn ghost"
+                              onClick={() => {
+                                setEditingInviteCode(false);
+                                setCustomCodeInput("");
+                              }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <strong className="invite-code-value">{inviteCodeShown}</strong>
+                          <div className="invite-code-actions">
+                            <button className={"btn " + (codeCopied ? "is-shared" : "primary")} onClick={copyInviteCode}>
+                              {codeCopied ? "Copied ✓" : "Copy Code"}
+                            </button>
+                            <button
+                              className="btn ghost"
+                              onClick={() => {
+                                setInviteCodeShown("");
+                                setCodeCopied(false);
+                              }}
+                            >
+                              Done
+                            </button>
+                          </div>
+                          <button
+                            className="btn ghost invite-code-edit-link"
+                            onClick={() => {
+                              setEditingInviteCode(true);
+                              setCustomCodeInput(inviteCodeShown);
+                            }}
+                          >
+                            Edit Code
+                          </button>
+                        </>
+                      )}
                     </div>
                   )}
                   {currentStudio?.role === "owner" && !showTransferPanel && (
