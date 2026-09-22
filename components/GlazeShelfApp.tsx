@@ -490,9 +490,12 @@ export default function GlazeShelfApp({
     if (error) setMsg(error.message);
   }
   async function auth(signup = false) {
+    if (!email.trim() || !password) {
+      return setMsg("Enter your email and password.");
+    }
     const r = signup
-      ? await sb.auth.signUp({ email, password })
-      : await sb.auth.signInWithPassword({ email, password });
+      ? await sb.auth.signUp({ email: email.trim(), password })
+      : await sb.auth.signInWithPassword({ email: email.trim(), password });
     if (r.error) setMsg(r.error.message);
     else if (signup) setMsg("Account created. Check email if required.");
     else setShowLoginSpin(true);
