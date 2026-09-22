@@ -979,7 +979,6 @@ export default function GlazeShelfApp({
       setJoin("");
       setMsg("Studio joined ✓");
       await load(r.data);
-      setHomeStudioManagerOpen(false);
     }
   }
   async function openStudio(id: string) {
