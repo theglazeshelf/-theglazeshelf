@@ -2001,10 +2001,9 @@ export default function GlazeShelfApp({
             </button>
             <button
               className="btn ghost simple-auth-create"
-              onClick={() => {
-                sb.auth.signOut();
-                setRecovery(false);
-                setMsg("");
+              onClick={async () => {
+                await sb.auth.signOut();
+                window.location.reload();
               }}
             >
               Back to Sign In
@@ -2183,7 +2182,10 @@ export default function GlazeShelfApp({
             setMsg("");
             setTab("account");
           }}
-          onSignOut={() => sb.auth.signOut()}
+          onSignOut={async () => {
+            await sb.auth.signOut();
+            window.location.reload();
+          }}
         />
         {tab !== "home" && (
           <img
@@ -2586,7 +2588,10 @@ export default function GlazeShelfApp({
             </section>
             <button
               className="btn account-signout-button"
-              onClick={() => sb.auth.signOut()}
+              onClick={async () => {
+                await sb.auth.signOut();
+                window.location.reload();
+              }}
             >
               <LogOut size={18} /> Sign Out
             </button>
