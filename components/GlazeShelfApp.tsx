@@ -982,7 +982,7 @@ export default function GlazeShelfApp({
     setJoinMsg("");
     if (!join.trim()) return setJoinMsg("Enter an invite code first.");
     const r = await sb.rpc("join_studio_by_code", { p_code: join });
-    if (r.error) return setJoinMsg(`${r.error.message} (sent: "${join}", length ${join.length})`);
+    if (r.error) return setJoinMsg(r.error.message);
     else {
       setJoin("");
       setJoinMsg("Studio joined ✓");
