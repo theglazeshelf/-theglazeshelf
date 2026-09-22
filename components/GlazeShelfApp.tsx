@@ -2944,6 +2944,22 @@ export default function GlazeShelfApp({
             {shelfView === "materials" && (
               <>
                 <div className="shelf-actions">
+                  {currentStudio && (
+                    <button
+                      className="btn studio-shelf-link"
+                      onClick={() => openStudio(currentStudio.studio_id)}
+                    >
+                      <span>
+                        {currentStudio.photo_url ? (
+                          <img className="studio-shelf-link-photo" src={currentStudio.photo_url} alt="" />
+                        ) : (
+                          <Layers size={18} />
+                        )}
+                        Open {currentStudio.name} Shelf
+                      </span>
+                      <ArrowRight size={18} />
+                    </button>
+                  )}
                   <button
                     className="btn shelf-add-button"
                     onClick={() => openFinder("all")}
@@ -2953,17 +2969,6 @@ export default function GlazeShelfApp({
                     </span>
                     <ArrowRight size={18} />
                   </button>
-                  {currentStudio && (
-                    <button
-                      className="btn studio-shelf-link"
-                      onClick={() => openStudio(currentStudio.studio_id)}
-                    >
-                      <span>
-                        <Layers size={18} /> Open {currentStudio.name} Shelf
-                      </span>
-                      <ArrowRight size={18} />
-                    </button>
-                  )}
                   <button
                     className="btn shelf-effect-button"
                     onClick={() => openUnderglazeFinder("all")}
