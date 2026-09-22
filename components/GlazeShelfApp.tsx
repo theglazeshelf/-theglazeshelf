@@ -2907,7 +2907,7 @@ export default function GlazeShelfApp({
               </details>
             )}
             <button
-              className="btn ghost"
+              className="btn ghost studio-back-button"
               style={{ width: "100%", marginTop: 12 }}
               onClick={() => setTab("home")}
             >
