@@ -150,6 +150,9 @@ export default function GlazeShelfApp({
     [editingInviteCode, setEditingInviteCode] = useState(false),
     [customCodeInput, setCustomCodeInput] = useState(""),
     [showTransferPanel, setShowTransferPanel] = useState(false),
+    [showDeleteStudioPanel, setShowDeleteStudioPanel] = useState(false),
+    [deleteStudioConfirmText, setDeleteStudioConfirmText] = useState(""),
+    [deletingStudio, setDeletingStudio] = useState(false),
     [studioMembers, setStudioMembers] = useState<any[]>([]),
     [transferTargetId, setTransferTargetId] = useState(""),
     [transferring, setTransferring] = useState(false),
@@ -1052,6 +1055,19 @@ export default function GlazeShelfApp({
     if (r.error) return setMsg(r.error.message);
     setMsg("Studio ownership transferred ✓");
     setShowTransferPanel(false);
+    await load();
+  }
+  async function deleteStudio(studioId: string, studioName: string) {
+    if (deleteStudioConfirmText !== studioName) return;
+    setDeletingStudio(true);
+    const r = await sb.from("studios").delete().eq("id", studioId);
+    setDeletingStudio(false);
+    if (r.error) return setMsg(r.error.message);
+    setShowDeleteStudioPanel(false);
+    setDeleteStudioConfirmText("");
+    if (studio === studioId) setStudio("");
+    setMsg("Studio deleted ✓");
+    setHomeStudioManagerOpen(false);
     await load();
   }
   async function studioAdd(x: any) {
@@ -2213,20 +2229,32 @@ export default function GlazeShelfApp({
           <>
             <header className="home-brand-header">
               <img className="home-brand-logo" src={homeLogo.src} alt="The Glaze Shelf — your pottery workspace" />
-              <button
-                className="home-account"
-                aria-label="Account settings"
-                onClick={() => {
-                  setMsg("");
-                  setTab("account");
-                }}
-              >
-                {session.user.user_metadata?.avatar_url ? (
-                  <img src={session.user.user_metadata.avatar_url} alt="" />
-                ) : (
-                  <UserRound size={22} />
-                )}
-              </button>
+              <div className="home-header-actions">
+                <button
+                  className="home-account"
+                  aria-label="Account settings"
+                  onClick={() => {
+                    setMsg("");
+                    setTab("account");
+                  }}
+                >
+                  {session.user.user_metadata?.avatar_url ? (
+                    <img src={session.user.user_metadata.avatar_url} alt="" />
+                  ) : (
+                    <UserRound size={22} />
+                  )}
+                </button>
+                <button
+                  className="home-signout"
+                  aria-label="Sign out"
+                  onClick={async () => {
+                    await sb.auth.signOut();
+                    window.location.reload();
+                  }}
+                >
+                  <LogOut size={20} />
+                </button>
+              </div>
             </header>
 
             <div className="home-glaze-stage">
@@ -2465,6 +2493,52 @@ export default function GlazeShelfApp({
                           onClick={() => transferOwnership(currentStudio.studio_id)}
                         >
                           {transferring ? "Transferring…" : "Transfer Ownership"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {currentStudio?.role === "owner" && !showDeleteStudioPanel && (
+                    <button
+                      className="btn ghost delete-studio-link"
+                      onClick={() => {
+                        setShowDeleteStudioPanel(true);
+                        setDeleteStudioConfirmText("");
+                      }}
+                    >
+                      Delete {currentStudio.name}
+                    </button>
+                  )}
+                  {showDeleteStudioPanel && (
+                    <div className="card delete-studio-card">
+                      <span className="eyebrow">DANGER ZONE</span>
+                      <p className="muted">
+                        This permanently deletes {currentStudio.name}, its shared shelf, and removes every
+                        member. It cannot be undone. Members' personal recipes and firings are not affected.
+                      </p>
+                      <label className="field-label">
+                        Type "{currentStudio.name}" to confirm
+                        <input
+                          className="input"
+                          placeholder={currentStudio.name}
+                          value={deleteStudioConfirmText}
+                          onChange={(e) => setDeleteStudioConfirmText(e.target.value)}
+                        />
+                      </label>
+                      <div className="transfer-ownership-actions">
+                        <button
+                          className="btn ghost"
+                          onClick={() => setShowDeleteStudioPanel(false)}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          className="btn delete-btn"
+                          disabled={
+                            deleteStudioConfirmText !== currentStudio.name || deletingStudio
+                          }
+                          onClick={() => deleteStudio(currentStudio.studio_id, currentStudio.name)}
+                        >
+                          {deletingStudio ? "Deleting…" : "Permanently Delete Studio"}
                         </button>
                       </div>
                     </div>
