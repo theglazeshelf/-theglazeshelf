@@ -2831,20 +2831,29 @@ export default function GlazeShelfApp({
                 </div>
               </div>
             </section>
-            <div className="grid">
-              <button className="btn primary" onClick={() => openFinder("all")}>
-                + Add Glaze
-              </button>
-              <button className="btn secondary" onClick={() => openUnderglazeFinder("all")}>
-                + Add Underglaze
-              </button>
-              <button
-                className="btn secondary"
-                onClick={openClayFinder}
-              >
-                + Add Clay
-              </button>
-            </div>
+            {canEditStudio ? (
+              <div className="grid">
+                <button className="btn primary" onClick={() => openFinder("all")}>
+                  + Add Glaze
+                </button>
+                <button className="btn secondary" onClick={() => openUnderglazeFinder("all")}>
+                  + Add Underglaze
+                </button>
+                <button
+                  className="btn secondary"
+                  onClick={openClayFinder}
+                >
+                  + Add Clay
+                </button>
+              </div>
+            ) : (
+              <div className="card">
+                <p className="muted">
+                  You're a member of this studio — you can view and search its shelf, but only an
+                  admin can add to it.
+                </p>
+              </div>
+            )}
             <button
               className="btn shelf-effect-button studio-search-button"
               onClick={() => openFinder("studio")}
