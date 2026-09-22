@@ -140,6 +140,7 @@ export default function GlazeShelfApp({
     [studio, setStudio] = useState(""),
     [studioName, setStudioName] = useState(""),
     [join, setJoin] = useState(""),
+    [joinMsg, setJoinMsg] = useState(""),
     [sharingRecipeId, setSharingRecipeId] = useState(""),
     [studioRecipesOpen, setStudioRecipesOpen] = useState(false),
     [studioRecipesList, setStudioRecipesList] = useState<any[]>([]),
@@ -973,11 +974,12 @@ export default function GlazeShelfApp({
     }
   }
   async function joinStudio() {
+    setJoinMsg("");
     const r = await sb.rpc("join_studio_by_code", { p_code: join });
-    if (r.error) setMsg(r.error.message);
+    if (r.error) setJoinMsg(r.error.message);
     else {
       setJoin("");
-      setMsg("Studio joined ✓");
+      setJoinMsg("Studio joined ✓");
       await load(r.data);
     }
   }
@@ -1005,18 +1007,6 @@ export default function GlazeShelfApp({
       setInviteCodeShown(currentStudio.join_code);
       return;
     }
-    const r = await sb.rpc("regenerate_studio_join_code", { p_studio_id: id });
-    if (r.error) return setMsg(r.error.message);
-    setInviteCodeShown(r.data || "");
-    await load();
-  }
-  async function regenerateInviteCode(id: string) {
-    if (
-      !window.confirm(
-        "Generate a new code? Anyone who hasn't joined with the old code yet won't be able to use it anymore.",
-      )
-    )
-      return;
     const r = await sb.rpc("regenerate_studio_join_code", { p_studio_id: id });
     if (r.error) return setMsg(r.error.message);
     setInviteCodeShown(r.data || "");
@@ -2370,12 +2360,6 @@ export default function GlazeShelfApp({
                           Done
                         </button>
                       </div>
-                      <button
-                        className="btn ghost invite-code-regenerate"
-                        onClick={() => regenerateInviteCode(currentStudio.studio_id)}
-                      >
-                        Generate New Code
-                      </button>
                     </div>
                   )}
                   {currentStudio?.role === "owner" && !showTransferPanel && (
@@ -2442,6 +2426,7 @@ export default function GlazeShelfApp({
                     <input className="input" placeholder="Enter invite code" value={join} onChange={(e) => setJoin(e.target.value)} />
                   </label>
                   <button className="btn ghost" onClick={joinStudio}>Join Studio</button>
+                  {joinMsg && <div className="notice join-studio-notice">{joinMsg}</div>}
                 </section>
               </div>
             )}
