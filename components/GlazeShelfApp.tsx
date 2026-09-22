@@ -14,6 +14,8 @@ import {
   Layers,
   Compass,
   Share2,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { AppHeader, BottomNavigation } from "./AppNavigation";
 import {
@@ -110,6 +112,7 @@ export default function GlazeShelfApp({
     [password, setPassword] = useState(""),
     [authMode, setAuthMode] = useState<"signin" | "signup">("signin"),
     [signupConfirmPassword, setSignupConfirmPassword] = useState(""),
+    [visiblePasswordFields, setVisiblePasswordFields] = useState<Set<string>>(new Set()),
     [msg, setMsg] = useState(""),
     [tab, setTabState] = useState<AppScreen>(initialScreen),
     [recovery, setRecovery] = useState(false),
@@ -264,6 +267,27 @@ export default function GlazeShelfApp({
       return false;
     };
     return qWords.every((w) => matchesSomeSuffix(w));
+  }
+  function togglePasswordField(key: string) {
+    setVisiblePasswordFields((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+  function renderPasswordToggle(fieldKey: string) {
+    const visible = visiblePasswordFields.has(fieldKey);
+    return (
+      <button
+        type="button"
+        className="password-toggle"
+        aria-label={visible ? "Hide password" : "Show password"}
+        onClick={() => togglePasswordField(fieldKey)}
+      >
+        {visible ? <EyeOff size={18} /> : <Eye size={18} />}
+      </button>
+    );
   }
   function decodeApplication(value: any) {
     const raw = String(value || "overall").toLowerCase();
@@ -1939,22 +1963,28 @@ export default function GlazeShelfApp({
             Choose a password with at least 8 characters.
           </p>
           <div className="stack simple-auth-form">
-            <input
-              className="input"
-              type="password"
-              autoComplete="new-password"
-              placeholder="New password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-            />
-            <input
-              className="input"
-              type="password"
-              autoComplete="new-password"
-              placeholder="Confirm new password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-            />
+            <div className="password-field-wrap">
+              <input
+                className="input"
+                type={visiblePasswordFields.has("newPassword") ? "text" : "password"}
+                autoComplete="new-password"
+                placeholder="New password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+              {renderPasswordToggle("newPassword")}
+            </div>
+            <div className="password-field-wrap">
+              <input
+                className="input"
+                type={visiblePasswordFields.has("confirmNewPassword") ? "text" : "password"}
+                autoComplete="new-password"
+                placeholder="Confirm new password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+              {renderPasswordToggle("confirmNewPassword")}
+            </div>
             <button
               className="btn simple-auth-primary"
               onClick={saveNewPassword}
@@ -2011,25 +2041,31 @@ export default function GlazeShelfApp({
                 </label>
                 <label className="auth-field">
                   Password
-                  <input
-                    className="input"
-                    type="password"
-                    autoComplete="new-password"
-                    placeholder="At least 8 characters"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
+                  <div className="password-field-wrap">
+                    <input
+                      className="input"
+                      type={visiblePasswordFields.has("signupPassword") ? "text" : "password"}
+                      autoComplete="new-password"
+                      placeholder="At least 8 characters"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                    />
+                    {renderPasswordToggle("signupPassword")}
+                  </div>
                 </label>
                 <label className="auth-field">
                   Confirm Password
-                  <input
-                    className="input"
-                    type="password"
-                    autoComplete="new-password"
-                    placeholder="Re-enter your password"
-                    value={signupConfirmPassword}
-                    onChange={(e) => setSignupConfirmPassword(e.target.value)}
-                  />
+                  <div className="password-field-wrap">
+                    <input
+                      className="input"
+                      type={visiblePasswordFields.has("signupConfirm") ? "text" : "password"}
+                      autoComplete="new-password"
+                      placeholder="Re-enter your password"
+                      value={signupConfirmPassword}
+                      onChange={(e) => setSignupConfirmPassword(e.target.value)}
+                    />
+                    {renderPasswordToggle("signupConfirm")}
+                  </div>
                 </label>
                 <button className="btn simple-auth-primary" type="submit">
                   Create Account <ArrowRight size={18} />
@@ -2075,14 +2111,17 @@ export default function GlazeShelfApp({
             </label>
             <label className="auth-field">
               Password
-              <input
-                className="input"
-                type="password"
-                autoComplete="current-password"
-                placeholder="Your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
+              <div className="password-field-wrap">
+                <input
+                  className="input"
+                  type={visiblePasswordFields.has("signinPassword") ? "text" : "password"}
+                  autoComplete="current-password"
+                  placeholder="Your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+                {renderPasswordToggle("signinPassword")}
+              </div>
             </label>
             <button
               className="forgot-link"
@@ -2500,22 +2539,28 @@ export default function GlazeShelfApp({
               <span className="eyebrow">SECURITY</span>
               <h2>Change password</h2>
               <div className="stack account-fields">
-                <input
-                  className="input"
-                  type="password"
-                  autoComplete="new-password"
-                  placeholder="New password"
-                  value={accountPassword}
-                  onChange={(e) => setAccountPassword(e.target.value)}
-                />
-                <input
-                  className="input"
-                  type="password"
-                  autoComplete="new-password"
-                  placeholder="Confirm new password"
-                  value={accountPasswordConfirm}
-                  onChange={(e) => setAccountPasswordConfirm(e.target.value)}
-                />
+                <div className="password-field-wrap">
+                  <input
+                    className="input"
+                    type={visiblePasswordFields.has("accountPassword") ? "text" : "password"}
+                    autoComplete="new-password"
+                    placeholder="New password"
+                    value={accountPassword}
+                    onChange={(e) => setAccountPassword(e.target.value)}
+                  />
+                  {renderPasswordToggle("accountPassword")}
+                </div>
+                <div className="password-field-wrap">
+                  <input
+                    className="input"
+                    type={visiblePasswordFields.has("accountPasswordConfirm") ? "text" : "password"}
+                    autoComplete="new-password"
+                    placeholder="Confirm new password"
+                    value={accountPasswordConfirm}
+                    onChange={(e) => setAccountPasswordConfirm(e.target.value)}
+                  />
+                  {renderPasswordToggle("accountPasswordConfirm")}
+                </div>
                 <button
                   className="btn secondary"
                   onClick={changeAccountPassword}
@@ -2556,14 +2601,17 @@ export default function GlazeShelfApp({
                   </p>
                   <label className="field-label">
                     Current Password
-                    <input
-                      className="input"
-                      type="password"
-                      autoComplete="current-password"
-                      placeholder="Your password"
-                      value={deleteAccountPassword}
-                      onChange={(e) => setDeleteAccountPassword(e.target.value)}
-                    />
+                    <div className="password-field-wrap">
+                      <input
+                        className="input"
+                        type={visiblePasswordFields.has("deleteAccountPassword") ? "text" : "password"}
+                        autoComplete="current-password"
+                        placeholder="Your password"
+                        value={deleteAccountPassword}
+                        onChange={(e) => setDeleteAccountPassword(e.target.value)}
+                      />
+                      {renderPasswordToggle("deleteAccountPassword")}
+                    </div>
                   </label>
                   <label className="field-label">
                     Type DELETE
