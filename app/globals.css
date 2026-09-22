@@ -6,6 +6,7 @@
 .invite-code-card{text-align:center;border:1px solid var(--purple);background:var(--purple-soft)}
 .invite-code-value{display:block;margin:8px 0 14px;font-size:1.6rem;letter-spacing:.08em;color:var(--purple)}
 .invite-code-actions{display:flex;gap:10px}
+.invite-code-regenerate{width:100%;margin-top:8px;font-size:.78rem}
 .invite-code-actions .btn{flex:1}
 .transfer-ownership-card{border:1px solid #6450c832}
 .transfer-ownership-card p{margin:6px 0 12px}
