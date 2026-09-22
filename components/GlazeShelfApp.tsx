@@ -108,6 +108,8 @@ export default function GlazeShelfApp({
   const [session, setSession] = useState<any>(null),
     [email, setEmail] = useState(""),
     [password, setPassword] = useState(""),
+    [authMode, setAuthMode] = useState<"signin" | "signup">("signin"),
+    [signupConfirmPassword, setSignupConfirmPassword] = useState(""),
     [msg, setMsg] = useState(""),
     [tab, setTabState] = useState<AppScreen>(initialScreen),
     [recovery, setRecovery] = useState(false),
@@ -493,12 +495,24 @@ export default function GlazeShelfApp({
     if (!email.trim() || !password) {
       return setMsg("Enter your email and password.");
     }
+    if (signup) {
+      if (password.length < 8) {
+        return setMsg("Your password must be at least 8 characters.");
+      }
+      if (password !== signupConfirmPassword) {
+        return setMsg("Passwords don't match.");
+      }
+    }
     const r = signup
       ? await sb.auth.signUp({ email: email.trim(), password })
       : await sb.auth.signInWithPassword({ email: email.trim(), password });
     if (r.error) setMsg(r.error.message);
-    else if (signup) setMsg("Account created. Check email if required.");
-    else setShowLoginSpin(true);
+    else if (signup) {
+      setAuthMode("signin");
+      setPassword("");
+      setSignupConfirmPassword("");
+      setMsg("Account created. Check email if required.");
+    } else setShowLoginSpin(true);
   }
   async function forgotPassword() {
     if (!email.trim()) return setMsg("Enter your email address first.");
@@ -1974,6 +1988,72 @@ export default function GlazeShelfApp({
             alt="The Glaze Shelf"
           />
           <div className="simple-auth-card">
+          {authMode === "signup" ? (
+            <>
+              <h1>Create an Account</h1>
+              <form
+                className="stack simple-auth-form"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  auth(true);
+                }}
+              >
+                <label className="auth-field">
+                  Email
+                  <input
+                    className="input"
+                    type="email"
+                    autoComplete="email"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                </label>
+                <label className="auth-field">
+                  Password
+                  <input
+                    className="input"
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder="At least 8 characters"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                </label>
+                <label className="auth-field">
+                  Confirm Password
+                  <input
+                    className="input"
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder="Re-enter your password"
+                    value={signupConfirmPassword}
+                    onChange={(e) => setSignupConfirmPassword(e.target.value)}
+                  />
+                </label>
+                <button className="btn simple-auth-primary" type="submit">
+                  Create Account <ArrowRight size={18} />
+                </button>
+                <div className="auth-divider">
+                  <span>Already have an account?</span>
+                </div>
+                <button
+                  className="btn ghost simple-auth-create"
+                  type="button"
+                  onClick={() => {
+                    setAuthMode("signin");
+                    setPassword("");
+                    setSignupConfirmPassword("");
+                    setMsg("");
+                  }}
+                >
+                  Back to Sign In
+                </button>
+                {msg && <div className="notice">{msg}</div>}
+              </form>
+            </>
+          ) : (
+            <>
           <h1>Sign in</h1>
           <form
             className="stack simple-auth-form"
@@ -2020,12 +2100,18 @@ export default function GlazeShelfApp({
             <button
               className="btn ghost simple-auth-create"
               type="button"
-              onClick={() => auth(true)}
+              onClick={() => {
+                setAuthMode("signup");
+                setPassword("");
+                setMsg("");
+              }}
             >
               Create an Account
             </button>
             {msg && <div className="notice">{msg}</div>}
           </form>
+            </>
+          )}
           </div>
         </section>
       </main>
