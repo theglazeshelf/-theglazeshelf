@@ -3840,51 +3840,46 @@ export default function GlazeShelfApp({
             )}
             <div className="explore-grid">
               {exploreResults.map((item) => (
-                <article className="explore-card" key={item.firing_id}>
-                  <div className="explore-photo-wrap">
-                    {item.primaryPhotoUrl ? (
-                      <img src={item.primaryPhotoUrl} alt={(item.recipe_name || "Glaze") + " firing result"} />
-                    ) : (
-                      <div className="explore-photo-placeholder"><Compass size={28} /></div>
-                    )}
-                    {Number(item.photo_count) > 1 && <span className="explore-photo-count">{item.photo_count} photos</span>}
-                  </div>
-                  <div className="explore-card-body">
-                    <div className="row explore-card-heading">
-                      <div>
-                        <strong>{item.recipe_name || "Shared firing"}</strong>
-                        <small>
-                          {item.clay_name || "Clay not listed"}
-                          {item.cone != null ? " · Cone " + item.cone : ""}
-                        </small>
-                      </div>
-                      <span className="explore-rating">{item.rating || "—"}/5</span>
+                <details className="explore-card" key={item.firing_id}>
+                  <summary className="explore-card-summary">
+                    <div>
+                      <strong>{item.recipe_name || "Shared firing"}</strong>
+                      <small>
+                        {item.clay_name || "Clay not listed"}
+                        {item.cone != null ? " · Cone " + item.cone : ""}
+                      </small>
                     </div>
-                    {(item.layers?.length > 0 || item.color_result || item.surface_result || item.movement_result || item.notes) && (
-                      <details className="explore-card-extra">
-                        <summary>Recipe &amp; result details</summary>
-                        {Array.isArray(item.layers) && item.layers.length > 0 && (
-                          <div className="explore-layer-list">
-                            {item.layers.map((layer: any, index: number) => (
-                              <span key={(layer.glaze_id || layer.glaze_name || "layer") + index}>
-                                {layer.glaze_name}{layer.coats ? " · " + layer.coats + " coats" : ""}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        <div className="explore-result-chips">
-                          {item.color_result && <span>{item.color_result}</span>}
-                          {item.surface_result && <span>{item.surface_result}</span>}
-                          {item.movement_result && <span>{item.movement_result}</span>}
-                        </div>
-                        {item.notes && <p>{item.notes}</p>}
-                      </details>
+                    <span className="explore-rating">{item.rating || "—"}/5</span>
+                  </summary>
+                  <div className="explore-card-body">
+                    <div className="explore-photo-wrap">
+                      {item.primaryPhotoUrl ? (
+                        <img src={item.primaryPhotoUrl} alt={(item.recipe_name || "Glaze") + " firing result"} />
+                      ) : (
+                        <div className="explore-photo-placeholder"><Compass size={28} /></div>
+                      )}
+                      {Number(item.photo_count) > 1 && <span className="explore-photo-count">{item.photo_count} photos</span>}
+                    </div>
+                    {Array.isArray(item.layers) && item.layers.length > 0 && (
+                      <div className="explore-layer-list">
+                        {item.layers.map((layer: any, index: number) => (
+                          <span key={(layer.glaze_id || layer.glaze_name || "layer") + index}>
+                            {layer.glaze_name}{layer.coats ? " · " + layer.coats + " coats" : ""}
+                          </span>
+                        ))}
+                      </div>
                     )}
+                    <div className="explore-result-chips">
+                      {item.color_result && <span>{item.color_result}</span>}
+                      {item.surface_result && <span>{item.surface_result}</span>}
+                      {item.movement_result && <span>{item.movement_result}</span>}
+                    </div>
+                    {item.notes && <p>{item.notes}</p>}
                     <button className="btn secondary explore-detail-button" type="button" onClick={() => openFiringDetail(item.firing_id)}>
                       View Firing Details <ArrowRight size={16} />
                     </button>
                   </div>
-                </article>
+                </details>
               ))}
             </div>
             <div className="explore-privacy-note">
