@@ -541,6 +541,9 @@ details.firing-card[open] .firing-card-summary{margin-bottom:4px}
 .explore-photo-placeholder{width:100%;height:100%;display:grid;place-items:center;color:var(--teal)}
 .explore-photo-count{position:absolute;bottom:8px;right:8px;background:#17324dcc;color:white;font-size:.68rem;font-weight:800;padding:3px 7px;border-radius:999px}
 .explore-card-body{padding:12px}
+.explore-card-summary{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;cursor:pointer;list-style:revert;padding:12px}
+.explore-card-summary::marker{color:var(--purple)}
+details.explore-card[open] .explore-card-summary{border-bottom:1px solid var(--line)}
 .explore-card-heading{align-items:flex-start;margin-bottom:6px}
 .explore-card-heading small{display:block;color:var(--muted);margin-top:2px}
 .explore-rating{background:var(--purple-soft);color:var(--purple);border-radius:999px;padding:4px 8px;font-size:.72rem;font-weight:800}
