@@ -2971,12 +2971,6 @@ export default function GlazeShelfApp({
                   </button>
                   <button
                     className="btn shelf-effect-button"
-                    onClick={() => openUnderglazeFinder("all")}
-                  >
-                    <Plus size={18} /> Add Underglazes
-                  </button>
-                  <button
-                    className="btn shelf-effect-button"
                     onClick={() => openFinder("mine")}
                   >
                     <Search size={18} /> Search My Shelf by Effect
