@@ -16,6 +16,7 @@ import {
   Share2,
   Eye,
   EyeOff,
+  ImageIcon,
 } from "lucide-react";
 import { AppHeader, BottomNavigation } from "./AppNavigation";
 import {
@@ -63,6 +64,53 @@ const colorOptions = [
   "Clear",
 ];
 const FINDER_PAGE_SIZE = 24;
+
+type GlazeCatalogPhoto = {
+  id: string;
+  glaze_id: string;
+  storage_path: string;
+  alt_text: string | null;
+  caption: string | null;
+  publicUrl: string;
+};
+
+function CatalogGlazePhoto({
+  photo,
+  glazeName,
+  variant = "thumbnail",
+}: {
+  photo?: GlazeCatalogPhoto;
+  glazeName: string;
+  variant?: "thumbnail" | "detail" | "builder";
+}) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [photo?.publicUrl]);
+  const showPhoto = !!photo?.publicUrl && !failed;
+
+  return (
+    <figure className={`catalog-glaze-photo ${variant}`}>
+      {showPhoto ? (
+        <img
+          src={photo?.publicUrl || ""}
+          alt={photo?.alt_text || `${glazeName} glaze`}
+          loading="lazy"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <div
+          className="catalog-glaze-placeholder"
+          aria-label={`No photo yet for ${glazeName}`}
+        >
+          <ImageIcon size={variant === "detail" ? 30 : 21} aria-hidden="true" />
+          <span>Photo coming soon</span>
+        </div>
+      )}
+      {variant === "detail" && photo?.caption && showPhoto && (
+        <figcaption>{photo.caption}</figcaption>
+      )}
+    </figure>
+  );
+}
 
 async function optimizeImageFile(
   file: File,
@@ -200,6 +248,7 @@ export default function GlazeShelfApp({
     [glazeDetailLoading, setGlazeDetailLoading] = useState(false),
     [glazeDetailScroll, setGlazeDetailScroll] = useState(0),
     [addingShelfKey, setAddingShelfKey] = useState("");
+  const [glazePhotos, setGlazePhotos] = useState<Record<string, GlazeCatalogPhoto>>({});
   const [materialDetail, setMaterialDetail] = useState<any>(null),
     [materialDetailScroll, setMaterialDetailScroll] = useState(0);
   const [effectSearch, setEffectSearch] = useState(""),
@@ -323,6 +372,10 @@ export default function GlazeShelfApp({
   }
   function resultKey(x: any) {
     return `${resultItemType(x)}:${resultItemId(x)}`;
+  }
+  function glazePhotoFor(x: any) {
+    if (!x || resultItemType(x) !== "glaze") return undefined;
+    return glazePhotos[String(resultItemId(x))];
   }
   function personalShelfRow(x: any) {
     const key = resultKey(x);
@@ -478,7 +531,7 @@ export default function GlazeShelfApp({
     };
   }
   async function load(preferredStudioId = "") {
-    const [a, b, c, d, materials] = await Promise.all([
+    const [a, b, c, d, materials, photoRows] = await Promise.all([
       sb.rpc("get_my_shelf_v2"),
       sb.rpc("get_my_recipes_v2"),
       sb.rpc("get_my_studios"),
@@ -487,7 +540,25 @@ export default function GlazeShelfApp({
         .from("user_material_inventory")
         .select("status,quantity,container_size,notes,updated_at,material:materials(id,name,sku,cone_min,cone_max,firing_range,finish,opacity,manufacturer:manufacturers(name))")
         .eq("user_id", session.user.id),
+      sb
+        .from("glaze_catalog_photos")
+        .select("id,glaze_id,storage_path,alt_text,caption")
+        .eq("is_approved", true)
+        .eq("is_primary", true),
     ]);
+    if (!photoRows.error) {
+      const nextPhotos: Record<string, GlazeCatalogPhoto> = {};
+      (photoRows.data ?? []).forEach((row: any) => {
+        const publicUrl = sb.storage
+          .from("glaze-photos")
+          .getPublicUrl(row.storage_path).data.publicUrl;
+        nextPhotos[String(row.glaze_id)] = { ...row, publicUrl };
+      });
+      setGlazePhotos(nextPhotos);
+    } else {
+      // Keep v187 fully usable until the optional photo setup SQL is installed.
+      setGlazePhotos({});
+    }
     setShelf([...(a.data ?? []), ...(materials.data ?? []).map(normalizeMaterialInventory)]);
     setRecipes(b.data ?? []);
     setFirings(d.data ?? []);
@@ -2872,14 +2943,24 @@ export default function GlazeShelfApp({
                 <div className="material-list-scroll">
             {studioShelf.map((x) => (
               <div className="item" key={x.item_type + x.item_id}>
-                <div className="row">
-                  <strong>{x.item_name}</strong>
-                  <span className={"stock-badge " + (x.status === "low" ? "low" : "")}>
-                    {x.status === "low" ? "Low stock" : x.status || "available"}
-                  </span>
-                </div>
-                <div className="muted">
-                  {x.manufacturer} • {x.item_type}
+                <div className="catalog-item-heading">
+                  {x.item_type === "glaze" && (
+                    <CatalogGlazePhoto
+                      photo={glazePhotoFor(x)}
+                      glazeName={x.item_name || "Glaze"}
+                    />
+                  )}
+                  <div className="catalog-item-copy">
+                    <div className="row">
+                      <strong>{x.item_name}</strong>
+                      <span className={"stock-badge " + (x.status === "low" ? "low" : "")}>
+                        {x.status === "low" ? "Low stock" : x.status || "available"}
+                      </span>
+                    </div>
+                    <div className="muted">
+                      {x.manufacturer} • {x.item_type}
+                    </div>
+                  </div>
                 </div>
                 {(x.quantity != null || x.container_size || x.notes) && (
                   <div className="inventory-summary">
@@ -3103,21 +3184,31 @@ export default function GlazeShelfApp({
                   <div className="material-list-scroll">
                 {visibleShelfMaterials.map((x) => (
                   <div className="item material-card" key={x.item_type + x.item_id}>
-                    <div className="row material-card-heading">
-                      <div>
-                        <strong>{x.item_name}</strong>
-                        <div className="muted">
-                          {x.manufacturer} • {x.item_type}
-                          {x.sku_or_code ? ` • ${x.sku_or_code}` : ""}
+                    <div className="catalog-item-heading">
+                      {x.item_type === "glaze" && (
+                        <CatalogGlazePhoto
+                          photo={glazePhotoFor(x)}
+                          glazeName={x.item_name || "Glaze"}
+                        />
+                      )}
+                      <div className="catalog-item-copy">
+                        <div className="row material-card-heading">
+                          <div>
+                            <strong>{x.item_name}</strong>
+                            <div className="muted">
+                              {x.manufacturer} • {x.item_type}
+                              {x.sku_or_code ? ` • ${x.sku_or_code}` : ""}
+                            </div>
+                          </div>
+                          {x.personalStatus === "low" || x.studioStatus === "low" ? (
+                            <span className="stock-badge low">Low stock</span>
+                          ) : null}
+                        </div>
+                        <div className="shelf-locations">
+                          {x.onMyShelf && <span className="location-badge personal">My Shelf</span>}
+                          {x.onStudioShelf && <span className="location-badge studio">Studio Shelf</span>}
                         </div>
                       </div>
-                      {x.personalStatus === "low" || x.studioStatus === "low" ? (
-                        <span className="stock-badge low">Low stock</span>
-                      ) : null}
-                    </div>
-                    <div className="shelf-locations">
-                      {x.onMyShelf && <span className="location-badge personal">My Shelf</span>}
-                      {x.onStudioShelf && <span className="location-badge studio">Studio Shelf</span>}
                     </div>
                     {(x.personalQuantity != null || x.personalContainerSize || x.personalNotes) && (
                       <div className="inventory-summary">
@@ -3171,12 +3262,20 @@ export default function GlazeShelfApp({
                 )}
                 {wantToTryMaterials.map((x) => (
                   <div className="item material-card wishlist-card" key={x.item_id}>
-                    <div className="row material-card-heading">
-                      <div>
-                        <strong>{x.item_name}</strong>
-                        <div className="muted">{x.manufacturer} • {x.sku_or_code || "glaze"}</div>
+                    <div className="catalog-item-heading">
+                      <CatalogGlazePhoto
+                        photo={glazePhotoFor(x)}
+                        glazeName={x.item_name || "Glaze"}
+                      />
+                      <div className="catalog-item-copy">
+                        <div className="row material-card-heading">
+                          <div>
+                            <strong>{x.item_name}</strong>
+                            <div className="muted">{x.manufacturer} • {x.sku_or_code || "glaze"}</div>
+                          </div>
+                          <span className="location-badge wishlist">Want to Try</span>
+                        </div>
                       </div>
-                      <span className="location-badge wishlist">Want to Try</span>
                     </div>
                     {x.personalNotes && <p className="inventory-note">{x.personalNotes}</p>}
                     <div className="material-actions">
@@ -3625,17 +3724,27 @@ export default function GlazeShelfApp({
             )}
             {results.map((x) => (
               <div className="item finder-result" key={resultKey(x)}>
-                <div className="row result-title">
-                  <div>
-                    <strong>{x.glaze_name || x.clay_name || x.material_name || x.name}</strong>
-                    <div className="muted">
-                      {x.manufacturer}
-                      {displayMaterialSku(x.sku) ? ` • ${displayMaterialSku(x.sku)}` : ""}
+                <div className="catalog-item-heading">
+                  {kind === "glaze" && (
+                    <CatalogGlazePhoto
+                      photo={glazePhotoFor(x)}
+                      glazeName={x.glaze_name || x.name || "Glaze"}
+                    />
+                  )}
+                  <div className="catalog-item-copy">
+                    <div className="row result-title">
+                      <div>
+                        <strong>{x.glaze_name || x.clay_name || x.material_name || x.name}</strong>
+                        <div className="muted">
+                          {x.manufacturer}
+                          {displayMaterialSku(x.sku) ? ` • ${displayMaterialSku(x.sku)}` : ""}
+                        </div>
+                      </div>
+                      <span className="location-badge search-access">
+                        {accessLabel(x)}
+                      </span>
                     </div>
                   </div>
-                  <span className="location-badge search-access">
-                    {accessLabel(x)}
-                  </span>
                 </div>
                 {kind === "glaze" && (
                   <>
@@ -4008,7 +4117,13 @@ export default function GlazeShelfApp({
             {layers.map((x, i) => (
               <div className="item" key={i}>
                 <div className="row">
-                  <div>
+                  <div className="catalog-item-heading builder-layer-heading">
+                    <CatalogGlazePhoto
+                      photo={glazePhotoFor(x)}
+                      glazeName={x.glaze_name || "Glaze"}
+                      variant="builder"
+                    />
+                    <div className="catalog-item-copy">
                     <span className="muted">
                       {i === 0 ? "Base glaze" : `Layer ${i + 1}`}
                     </span>
@@ -4111,6 +4226,7 @@ export default function GlazeShelfApp({
                         />
                       </label>
                     )}
+                    </div>
                   </div>
 
                   <button
@@ -4958,6 +5074,11 @@ export default function GlazeShelfApp({
                   ×
                 </button>
               </div>
+              <CatalogGlazePhoto
+                photo={glazePhotoFor(glazeDetail)}
+                glazeName={glazeDetail.name || "Glaze"}
+                variant="detail"
+              />
               {glazeDetailLoading ? (
                 <div className="detail-loading">Loading glaze details…</div>
               ) : (
