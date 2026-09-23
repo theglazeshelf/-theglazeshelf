@@ -599,3 +599,18 @@ details.explore-card[open] .explore-card-summary{border-bottom:1px solid var(--l
 .firing-comment-form .textarea{min-height:60px}
 .firing-comment-form .btn{align-self:flex-end}
 @media (max-width:410px){.journal-two-column{grid-template-columns:1fr}.saved-prediction-grid{grid-template-columns:1fr}.comparison-grid{grid-template-columns:58px 1fr 1fr}.comparison-grid>div{padding:8px 6px}.firing-layer-row{grid-template-columns:28px 1fr}.firing-layer-row>div:last-child{grid-column:2;text-align:left}}
+
+/* v188 — approved catalog glaze photos */
+.catalog-item-heading{display:flex;align-items:flex-start;gap:12px;min-width:0}
+.catalog-item-copy{flex:1;min-width:0}
+.catalog-glaze-photo{position:relative;flex:0 0 auto;overflow:hidden;margin:0;border:1px solid #6450c821;border-radius:14px;background:linear-gradient(145deg,#f1edff,#e2f6f5);box-shadow:0 7px 18px #17324d12}
+.catalog-glaze-photo.thumbnail{width:82px;height:82px}
+.catalog-glaze-photo.builder{width:68px;height:68px;border-radius:12px}
+.catalog-glaze-photo.detail{width:100%;aspect-ratio:16/10;margin:2px 0 15px;border-radius:18px}
+.catalog-glaze-photo img{display:block;width:100%;height:100%;object-fit:cover}
+.catalog-glaze-placeholder{display:flex;width:100%;height:100%;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:8px;text-align:center;color:#6450c8;background:radial-gradient(circle at 24% 18%,#fff 0,transparent 34%),linear-gradient(145deg,#f0ecff,#e0f7f5)}
+.catalog-glaze-placeholder span{font-size:.58rem;font-weight:850;line-height:1.12}
+.catalog-glaze-photo.detail .catalog-glaze-placeholder span{font-size:.76rem}
+.catalog-glaze-photo.detail figcaption{position:absolute;right:0;bottom:0;left:0;padding:9px 12px;background:linear-gradient(180deg,transparent,#102b43c7);color:#fff;font-size:.7rem;font-weight:700;line-height:1.35}
+.builder-layer-heading{flex:1}
+@media (max-width:380px){.catalog-item-heading{gap:9px}.catalog-glaze-photo.thumbnail{width:70px;height:70px}.catalog-glaze-photo.builder{width:58px;height:58px}.catalog-glaze-placeholder span{font-size:.52rem}}
