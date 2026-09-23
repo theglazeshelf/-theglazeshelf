@@ -257,6 +257,7 @@ export default function GlazeShelfApp({
     [finderCone, setFinderCone] = useState(""),
     [searchStarted, setSearchStarted] = useState(false),
     [searching, setSearching] = useState(false),
+    [totalResults, setTotalResults] = useState(0),
     [hasMoreResults, setHasMoreResults] = useState(false),
     [lastSearchQuick, setLastSearchQuick] = useState(false);
   const [showLoginSpin, setShowLoginSpin] = useState(false);
@@ -934,45 +935,65 @@ export default function GlazeShelfApp({
   async function search(quick = false, append = false) {
     setSearching(true);
     setSearchStarted(true);
+    if (!append) setTotalResults(0);
     if (!append) setLastSearchQuick(quick);
     const effectiveQuick = append ? lastSearchQuick : quick;
     const offset = append ? results.length : 0;
-    let r: any;
+    let resultRequest: any;
+    let countRequest: any = null;
     if (kind === "underglaze") {
-      r = await sb.rpc("search_materials_paged", {
+      const params = {
         p_query: q.trim() || null,
         p_material_type: "underglaze",
         p_user_id: session.user.id,
         p_studio_id: studio || null,
         p_access: searchScope,
+      };
+      resultRequest = sb.rpc("search_materials_paged", {
+        ...params,
         p_limit: FINDER_PAGE_SIZE,
         p_offset: offset,
       });
-    } else r =
-      kind === "glaze"
-        ? await sb.rpc("find_glazes_paged", {
-            p_query: q.trim() || null,
-            p_cone: effectiveQuick ? null : finderCone ? Number(finderCone) : null,
-            p_color_family: effectiveQuick ? null : colorSearch || null,
-            p_effect: effectiveQuick ? null : effectSearch.trim() || null,
-            p_user_id: session.user.id,
-            p_studio_id: studio || null,
-            p_access: searchScope,
-            p_limit: FINDER_PAGE_SIZE,
-            p_offset: offset,
-          })
-        : await sb.rpc("search_clays_paged", {
-            p_query: q.trim() || null,
-            p_cone: null,
-            p_limit: FINDER_PAGE_SIZE,
-            p_offset: offset,
-          });
+      if (!append) countRequest = sb.rpc("count_materials_search", params);
+    } else if (kind === "glaze") {
+      const params = {
+        p_query: q.trim() || null,
+        p_cone: effectiveQuick ? null : finderCone ? Number(finderCone) : null,
+        p_color_family: effectiveQuick ? null : colorSearch || null,
+        p_effect: effectiveQuick ? null : effectSearch.trim() || null,
+        p_user_id: session.user.id,
+        p_studio_id: studio || null,
+        p_access: searchScope,
+      };
+      resultRequest = sb.rpc("find_glazes_paged", {
+        ...params,
+        p_limit: FINDER_PAGE_SIZE,
+        p_offset: offset,
+      });
+      if (!append) countRequest = sb.rpc("count_glazes_search", params);
+    } else {
+      const params = { p_query: q.trim() || null, p_cone: null };
+      resultRequest = sb.rpc("search_clays_paged", {
+        ...params,
+        p_limit: FINDER_PAGE_SIZE,
+        p_offset: offset,
+      });
+      if (!append) countRequest = sb.rpc("count_clays_search", params);
+    }
+    const [r, countResult] = await Promise.all([
+      resultRequest,
+      countRequest ?? Promise.resolve(null),
+    ]);
     setSearching(false);
     if (r.error) setMsg(r.error.message);
     else {
       setMsg("");
       const incoming = r.data ?? [];
-      setHasMoreResults(incoming.length === FINDER_PAGE_SIZE);
+      const exactTotal = !append && !countResult?.error
+        ? Number(countResult?.data ?? incoming.length)
+        : totalResults;
+      if (!append) setTotalResults(exactTotal);
+      setHasMoreResults(offset + incoming.length < exactTotal);
       setResults((current) => {
         if (!append) return incoming;
         const seen = new Set(current.map(resultKey));
@@ -988,6 +1009,7 @@ export default function GlazeShelfApp({
     setSearchScope(scope);
     setFinderCone(fromBuilder ? String(cone) : "");
     setResults([]);
+    setTotalResults(0);
     setHasMoreResults(false);
     setSearchStarted(false);
     setMsg("");
@@ -1000,6 +1022,7 @@ export default function GlazeShelfApp({
     setColorSearch("");
     setFinderCone("");
     setResults([]);
+    setTotalResults(0);
     setHasMoreResults(false);
     setSearchStarted(false);
     setMsg("");
@@ -1015,6 +1038,7 @@ export default function GlazeShelfApp({
     setFinderCone("");
     setSearchScope("all");
     setResults([]);
+    setTotalResults(0);
     setHasMoreResults(false);
     setSearchStarted(false);
     setMsg("");
@@ -1029,6 +1053,7 @@ export default function GlazeShelfApp({
     setFinderCone("");
     setSearchScope(scope);
     setResults([]);
+    setTotalResults(0);
     setHasMoreResults(false);
     setSearchStarted(false);
     setMsg("");
@@ -3423,6 +3448,7 @@ export default function GlazeShelfApp({
                 onClick={() => {
                   setKind("glaze");
                   setResults([]);
+                  setTotalResults(0);
                   setHasMoreResults(false);
                   setSearchStarted(false);
                 }}
@@ -3437,6 +3463,7 @@ export default function GlazeShelfApp({
                 onClick={() => {
                   setKind("underglaze");
                   setResults([]);
+                  setTotalResults(0);
                   setHasMoreResults(false);
                   setSearchStarted(false);
                 }}
@@ -3451,6 +3478,7 @@ export default function GlazeShelfApp({
                 onClick={() => {
                   setKind("clay");
                   setResults([]);
+                  setTotalResults(0);
                   setHasMoreResults(false);
                   setSearchStarted(false);
                 }}
@@ -3511,6 +3539,7 @@ export default function GlazeShelfApp({
                       onChange={(e) => {
                         setSearchScope(e.target.value);
                         setResults([]);
+                        setTotalResults(0);
                         setHasMoreResults(false);
                         setSearchStarted(false);
                         setMsg("");
@@ -3655,6 +3684,7 @@ export default function GlazeShelfApp({
                     onChange={(e) => {
                       setSearchScope(e.target.value);
                       setResults([]);
+                      setTotalResults(0);
                       setHasMoreResults(false);
                       setSearchStarted(false);
                     }}
@@ -3697,7 +3727,7 @@ export default function GlazeShelfApp({
             {searchStarted && (
               <div className="results-heading">
                 <strong>
-                  {results.length}{hasMoreResults ? "+" : ""} {results.length === 1 ? "match" : "matches"}
+                  {totalResults} {totalResults === 1 ? "match" : "matches"}
                 </strong>
                 <span>
                   {kind === "glaze" || kind === "underglaze"
@@ -4097,6 +4127,7 @@ export default function GlazeShelfApp({
                 setKind("clay");
                 setQ("");
                 setResults([]);
+                setTotalResults(0);
                 setHasMoreResults(false);
                 setTab("find");
               }}
