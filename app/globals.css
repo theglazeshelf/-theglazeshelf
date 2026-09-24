@@ -585,6 +585,8 @@ details.explore-card[open] .explore-card-summary{border-bottom:1px solid var(--l
 .firing-learning-section p{margin:8px 0 0;font-size:.78rem;line-height:1.45}
 .firing-photo-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:9px}
 .firing-photo-grid figure{margin:0;overflow:hidden;border:1px solid var(--line);border-radius:13px;background:#fff}
+.firing-photo-item{position:relative}
+.firing-photo-delete{position:absolute;top:6px;right:6px;width:26px;height:26px;border-radius:50%;border:0;background:#00000075;color:#fff;font-size:1.1rem;line-height:1;display:grid;place-items:center;cursor:pointer}
 .firing-photo-grid img{display:block;width:100%;aspect-ratio:1/1;object-fit:cover}
 .firing-photo-grid figcaption{padding:7px;color:var(--muted);font-size:.7rem;font-weight:850;text-align:center}
 .firing-detail-close{width:100%;margin-top:7px}
