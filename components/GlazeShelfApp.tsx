@@ -1535,6 +1535,13 @@ export default function GlazeShelfApp({
     setMsg("Firing deleted ✓");
     await load();
   }
+  async function deleteFiringPhoto(photoId: string) {
+    if (!window.confirm("Delete this photo? This can't be undone.")) return;
+    const r = await sb.from("firing_photos").delete().eq("id", photoId);
+    if (r.error) return setMsg(r.error.message);
+    setFiringDetailPhotos((current) => current.filter((p) => p.photo_id !== photoId));
+    setMsg("Photo deleted ✓");
+  }
   async function toggleRecipeStudioShare(recipeId: string, currentlyShared: boolean) {
     if (!currentStudio) return setMsg("Join or create a studio first.");
     setSharingRecipeId(recipeId);
@@ -4799,9 +4806,17 @@ export default function GlazeShelfApp({
                       <span className="eyebrow">PHOTOS</span>
                       <div className="firing-photo-grid">
                         {firingDetailPhotos.map((item) => (
-                          <figure key={item.photo_id}>
+                          <figure key={item.photo_id} className="firing-photo-item">
                             <img src={item.signedUrl} alt={`${item.photo_type} firing`} />
                             <figcaption>{titleCase(item.photo_type)}</figcaption>
+                            <button
+                              type="button"
+                              className="firing-photo-delete"
+                              aria-label="Delete photo"
+                              onClick={() => deleteFiringPhoto(item.photo_id)}
+                            >
+                              ×
+                            </button>
                           </figure>
                         ))}
                       </div>
