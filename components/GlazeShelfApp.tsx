@@ -174,6 +174,10 @@ export default function GlazeShelfApp({
     [clay, setClay] = useState<any>(null),
     [cone, setCone] = useState(6),
     [bisqueCone, setBisqueCone] = useState("06"),
+    [phase1Cone, setPhase1Cone] = useState("glaze:6"),
+    [phase2Cone, setPhase2Cone] = useState(""),
+    [useQuickGlazePick, setUseQuickGlazePick] = useState(false),
+    [quickPickGlazeIds, setQuickPickGlazeIds] = useState<string[]>([]),
     [projectDescription, setProjectDescription] = useState(""),
     [orientation, setOrientation] = useState("vertical"),
     [texture, setTexture] = useState("smooth"),
@@ -1081,6 +1085,16 @@ export default function GlazeShelfApp({
       setHomeStudioManagerOpen(false);
     }
   }
+  function decodeCone(encoded: string): { cone: number; bisqueCone: string } {
+    if (encoded.startsWith("bisque:")) return { cone: 0, bisqueCone: encoded.slice(7) };
+    if (encoded.startsWith("glaze:")) return { cone: Number(encoded.slice(6)), bisqueCone: "" };
+    return { cone: 0, bisqueCone: "" };
+  }
+  function encodeCone(coneValue: number, bisqueValue: string): string {
+    if (bisqueValue) return "bisque:" + bisqueValue;
+    if (coneValue) return "glaze:" + coneValue;
+    return "";
+  }
   function friendlyError(message: string) {
     if (!message) return message;
     if (/jwt/i.test(message) && /future/i.test(message)) {
@@ -1639,6 +1653,10 @@ export default function GlazeShelfApp({
   function startFiring(id: string, recipeCone: any) {
     setRecipe(id);
     if (recipeCone) setCone(Number(recipeCone));
+    setPhase1Cone(recipeCone ? "glaze:" + Number(recipeCone) : "glaze:6");
+    setPhase2Cone("");
+    setUseQuickGlazePick(false);
+    setQuickPickGlazeIds([]);
     setRecipeDetail([]);
     setCompletingFiringId("");
     setEditingHadResult(false);
@@ -1664,6 +1682,8 @@ export default function GlazeShelfApp({
     setEditingHadResult(!!f.fired_at);
     setRecipe(f.recipe_id);
     setCone(f.cone || 6);
+    setPhase1Cone(encodeCone(f.cone || 0, f.bisque_cone || ""));
+    setPhase2Cone("");
     setGlazedDate(f.glazed_at || "");
     setFiringDate(
       f.fired_at
@@ -1709,13 +1729,18 @@ export default function GlazeShelfApp({
   }
   async function saveFiringUpdate() {
     if (!completingFiringId) return;
+    const d1 = decodeCone(phase1Cone);
+    const d2 = phase2Cone ? decodeCone(phase2Cone) : null;
+    const finalCone = d2?.cone || d1.cone;
+    const finalBisqueCone = d1.bisqueCone || d2?.bisqueCone || "";
     setFiringSaving(true);
     const r = await sb.rpc("update_firing_setup", {
       p_firing_id: completingFiringId,
-      p_cone: cone,
+      p_cone: finalCone,
       p_schedule: firingSchedule || null,
       p_orientation: firingOrientation || null,
       p_glazed_at: glazedDate || null,
+      p_bisque_cone: finalBisqueCone || null,
     });
     if (r.error) {
       setFiringSaving(false);
@@ -1740,7 +1765,13 @@ export default function GlazeShelfApp({
     await load();
   }
   async function fire(mode: "progress" | "complete") {
-    if (!recipe) return setMsg("Choose a recipe.");
+    if (useQuickGlazePick) {
+      if (quickPickGlazeIds.length === 0) {
+        return setMsg("Pick at least one glaze for this firing.");
+      }
+    } else if (!recipe) {
+      return setMsg("Choose a recipe.");
+    }
     const travel = travelDistance.trim() === "" ? null : Number(travelDistance);
     if (travel != null && (!Number.isFinite(travel) || travel < 0)) {
       return setMsg("Movement distance must be zero or more.");
@@ -1748,7 +1779,25 @@ export default function GlazeShelfApp({
     if (mode === "complete" && !firingDate) {
       return setMsg("Choose the fired-on date to complete this firing.");
     }
+    const d1 = decodeCone(phase1Cone);
+    const d2 = phase2Cone ? decodeCone(phase2Cone) : null;
+    const finalCone = d2?.cone || d1.cone;
+    const finalBisqueCone = d1.bisqueCone || d2?.bisqueCone || "";
     setFiringSaving(true);
+
+    let activeRecipeId = recipe;
+    if (useQuickGlazePick && !completingFiringId) {
+      const made = await sb.rpc("create_recipe_from_glazes", {
+        p_glaze_ids: quickPickGlazeIds,
+        p_cone: finalCone || null,
+      });
+      if (made.error) {
+        setFiringSaving(false);
+        return setMsg(friendlyError(made.error.message));
+      }
+      activeRecipeId = made.data;
+      await load();
+    }
 
     if (completingFiringId) {
       const r = await sb.rpc("complete_firing_result", {
@@ -1761,6 +1810,8 @@ export default function GlazeShelfApp({
         p_defects: defects || null,
         p_rating: rating,
         p_notes: firingNotes || null,
+        p_cone: finalCone || null,
+        p_bisque_cone: finalBisqueCone || null,
       });
       if (r.error) {
         setFiringSaving(false);
@@ -1786,12 +1837,12 @@ export default function GlazeShelfApp({
     }
 
     const r = await sb.rpc("log_firing_v2", {
-      p_recipe_id: recipe,
+      p_recipe_id: activeRecipeId,
       p_fired_at:
         mode === "complete"
           ? new Date(`${firingDate}T12:00:00`).toISOString()
           : null,
-      p_cone: cone,
+      p_cone: finalCone,
       p_schedule: firingSchedule || null,
       p_orientation: firingOrientation || null,
       p_movement_result: movement || null,
@@ -1802,6 +1853,7 @@ export default function GlazeShelfApp({
       p_rating: rating,
       p_notes: firingNotes || null,
       p_glazed_at: glazedDate || null,
+      p_bisque_cone: finalBisqueCone || null,
     });
     if (r.error) {
       setFiringSaving(false);
@@ -1817,6 +1869,8 @@ export default function GlazeShelfApp({
     }
     setFiringSaving(false);
     setRecipe("");
+    setUseQuickGlazePick(false);
+    setQuickPickGlazeIds([]);
     setBeforePhoto([]);
     setPhoto([]);
     setJournalFormOpen(false);
@@ -4454,28 +4508,81 @@ export default function GlazeShelfApp({
               </summary>
               <div className="stack journal-card journal-form-body">
               <span className="journal-step">1 · Firing setup</span>
-              <label className="field-label">
-                Recipe
-                <select
-                  className="select"
-                  value={recipe}
-                  disabled={!!completingFiringId}
-                  onChange={(e) => {
-                    setRecipe(e.target.value);
-                    const chosen = recipes.find(
-                      (r) => r.recipe_id === e.target.value,
-                    );
-                    if (chosen?.cone) setCone(Number(chosen.cone));
-                  }}
-                >
-                  <option value="">Choose recipe…</option>
-                  {recipes.map((r) => (
-                    <option key={r.recipe_id} value={r.recipe_id}>
-                      {r.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              {!useQuickGlazePick ? (
+                <>
+                  <label className="field-label">
+                    Recipe
+                    <select
+                      className="select"
+                      value={recipe}
+                      disabled={!!completingFiringId}
+                      onChange={(e) => {
+                        setRecipe(e.target.value);
+                        const chosen = recipes.find(
+                          (r) => r.recipe_id === e.target.value,
+                        );
+                        if (chosen?.cone) setCone(Number(chosen.cone));
+                      }}
+                    >
+                      <option value="">Choose recipe…</option>
+                      {recipes.map((r) => (
+                        <option key={r.recipe_id} value={r.recipe_id}>
+                          {r.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {!completingFiringId && (
+                    <button
+                      type="button"
+                      className="journal-quickpick-toggle"
+                      onClick={() => {
+                        setUseQuickGlazePick(true);
+                        setRecipe("");
+                      }}
+                    >
+                      Don't have a saved recipe? Pick glazes instead
+                    </button>
+                  )}
+                </>
+              ) : (
+                <div className="field-label">
+                  Glazes for this Firing
+                  <div className="journal-quickpick-list">
+                    {shelf
+                      .filter((x) => x.item_type === "glaze")
+                      .map((x) => (
+                        <label className="journal-quickpick-item" key={x.item_id}>
+                          <input
+                            type="checkbox"
+                            checked={quickPickGlazeIds.includes(x.item_id)}
+                            onChange={(e) => {
+                              setQuickPickGlazeIds((current) =>
+                                e.target.checked
+                                  ? [...current, x.item_id]
+                                  : current.filter((id) => id !== x.item_id),
+                              );
+                            }}
+                          />
+                          {x.item_name}
+                        </label>
+                      ))}
+                    {shelf.filter((x) => x.item_type === "glaze").length === 0 && (
+                      <p className="muted">No glazes on your shelf yet — add some first.</p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className="journal-quickpick-toggle"
+                    onClick={() => {
+                      setUseQuickGlazePick(false);
+                      setQuickPickGlazeIds([]);
+                    }}
+                  >
+                    Use a saved recipe instead
+                  </button>
+                </div>
+              )}
               <div className="journal-two-column">
                 <label className="field-label">
                   Glazed On
@@ -4502,28 +4609,26 @@ export default function GlazeShelfApp({
                   onChange={(e) => setBeforePhoto(Array.from(e.target.files ?? []))}
                 />
               </label>
-              <div className="journal-two-column">
-                <label className="field-label">
-                  Glaze Firing Cone
-                  <select className="select" value={cone} onChange={(e) => setCone(+e.target.value)}>
-                    <option value="0">N/A</option>
-                    {[5, 6, 7, 8, 9, 10].map((value) => (
-                      <option key={value} value={value}>Cone {value}</option>
+              <label className="field-label">
+                Firing Cone
+                <select
+                  className="select"
+                  value={phase1Cone}
+                  onChange={(e) => setPhase1Cone(e.target.value)}
+                >
+                  <option value="">N/A</option>
+                  <optgroup label="Bisque">
+                    {["010", "08", "06", "05", "04"].map((value) => (
+                      <option key={"b" + value} value={"bisque:" + value}>Bisque Cone {value}</option>
                     ))}
-                  </select>
-                </label>
-                <label className="field-label">
-                  Bisque Firing Cone
-                  <select className="select" value={bisqueCone} onChange={(e) => setBisqueCone(e.target.value)}>
-                    <option value="">N/A</option>
-                    <option value="010">Cone 010</option>
-                    <option value="08">Cone 08</option>
-                    <option value="06">Cone 06</option>
-                    <option value="05">Cone 05</option>
-                    <option value="04">Cone 04</option>
-                  </select>
-                </label>
-              </div>
+                  </optgroup>
+                  <optgroup label="Glaze">
+                    {[5, 6, 7, 8, 9, 10].map((value) => (
+                      <option key={"g" + value} value={"glaze:" + value}>Glaze Cone {value}</option>
+                    ))}
+                  </optgroup>
+                </select>
+              </label>
               <label className="field-label">
                 Project Orientation
                 <select className="select" value={firingOrientation} onChange={(e) => setFiringOrientation(e.target.value)}>
@@ -4537,6 +4642,26 @@ export default function GlazeShelfApp({
               <label className="field-label">
                 Fired On
                 <input className="input" type="date" value={firingDate} onChange={(e) => setFiringDate(e.target.value)} />
+              </label>
+              <label className="field-label">
+                Second Firing Cone <span className="muted">(optional — if this piece went through a second firing, like bisque then glaze)</span>
+                <select
+                  className="select"
+                  value={phase2Cone}
+                  onChange={(e) => setPhase2Cone(e.target.value)}
+                >
+                  <option value="">Not applicable</option>
+                  <optgroup label="Bisque">
+                    {["010", "08", "06", "05", "04"].map((value) => (
+                      <option key={"b2" + value} value={"bisque:" + value}>Bisque Cone {value}</option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Glaze">
+                    {[5, 6, 7, 8, 9, 10].map((value) => (
+                      <option key={"g2" + value} value={"glaze:" + value}>Glaze Cone {value}</option>
+                    ))}
+                  </optgroup>
+                </select>
               </label>
               <label className="field-label">
                 Movement After Firing
