@@ -560,39 +560,46 @@ export default function GlazeShelfApp({
       // Keep v187 fully usable until the optional photo setup SQL is installed.
       setGlazePhotos({});
     }
-    setShelf([...(a.data ?? []), ...(materials.data ?? []).map(normalizeMaterialInventory)]);
-    setRecipes(b.data ?? []);
-    setFirings(d.data ?? []);
-    const studioRows = c.data ?? [];
-    const savedStudioId =
-      session?.user?.user_metadata?.preferred_studio_id || "";
-    const selectedStudioId =
-      preferredStudioId ||
-      (studioRows.some((s: any) => s.studio_id === savedStudioId)
-        ? savedStudioId
-        : "") ||
-      (studioRows.some((s: any) => s.studio_id === studio)
-        ? studio
-        : (studioRows.find((s: any) => s.is_default) || studioRows[0])
-            ?.studio_id) ||
-      "";
-    setStudios(studioRows);
-    setStudio(selectedStudioId);
-    setProfileStudio((current) => current || selectedStudioId);
-    let studioError: any = null;
-    if (selectedStudioId) {
-      const [e, materialRows] = await Promise.all([
-        sb.rpc("get_studio_shelf_v2", { p_studio_id: selectedStudioId }),
-        sb
-          .from("studio_material_inventory")
-          .select("status,quantity,container_size,notes,updated_at,material:materials(id,name,sku,cone_min,cone_max,firing_range,finish,opacity,manufacturer:manufacturers(name))")
-          .eq("studio_id", selectedStudioId),
-      ]);
-      studioError = e.error || materialRows.error;
-      setStudioShelf([...(e.data ?? []), ...(materialRows.data ?? []).map(normalizeMaterialInventory)]);
-    } else setStudioShelf([]);
-    const error = a.error || b.error || c.error || d.error || materials.error || studioError;
-    if (error) setMsg(error.message);
+    if (!a.error && !materials.error) {
+      setShelf([...(a.data ?? []), ...(materials.data ?? []).map(normalizeMaterialInventory)]);
+    }
+    if (!b.error) setRecipes(b.data ?? []);
+    if (!d.error) setFirings(d.data ?? []);
+    if (!c.error) {
+      const studioRows = c.data ?? [];
+      const savedStudioId =
+        session?.user?.user_metadata?.preferred_studio_id || "";
+      const selectedStudioId =
+        preferredStudioId ||
+        (studioRows.some((s: any) => s.studio_id === savedStudioId)
+          ? savedStudioId
+          : "") ||
+        (studioRows.some((s: any) => s.studio_id === studio)
+          ? studio
+          : (studioRows.find((s: any) => s.is_default) || studioRows[0])
+              ?.studio_id) ||
+        "";
+      setStudios(studioRows);
+      setStudio(selectedStudioId);
+      setProfileStudio((current) => current || selectedStudioId);
+      let studioError: any = null;
+      if (selectedStudioId) {
+        const [e, materialRows] = await Promise.all([
+          sb.rpc("get_studio_shelf_v2", { p_studio_id: selectedStudioId }),
+          sb
+            .from("studio_material_inventory")
+            .select("status,quantity,container_size,notes,updated_at,material:materials(id,name,sku,cone_min,cone_max,firing_range,finish,opacity,manufacturer:manufacturers(name))")
+            .eq("studio_id", selectedStudioId),
+        ]);
+        studioError = e.error || materialRows.error;
+        if (!studioError) {
+          setStudioShelf([...(e.data ?? []), ...(materialRows.data ?? []).map(normalizeMaterialInventory)]);
+        }
+      } else setStudioShelf([]);
+      if (studioError) setMsg(friendlyError(studioError.message));
+    }
+    const error = a.error || b.error || c.error || d.error || materials.error;
+    if (error) setMsg(friendlyError(error.message));
   }
   async function auth(signup = false) {
     if (!email.trim() || !password) {
@@ -609,7 +616,7 @@ export default function GlazeShelfApp({
     const r = signup
       ? await sb.auth.signUp({ email: email.trim(), password })
       : await sb.auth.signInWithPassword({ email: email.trim(), password });
-    if (r.error) setMsg(r.error.message);
+    if (r.error) setMsg(friendlyError(r.error.message));
     else if (signup) {
       setAuthMode("signin");
       setPassword("");
@@ -623,7 +630,7 @@ export default function GlazeShelfApp({
       redirectTo: window.location.origin,
     });
     setMsg(
-      r.error ? r.error.message : "Check your email for a password reset link.",
+      r.error ? friendlyError(r.error.message) : "Check your email for a password reset link.",
     );
   }
   async function saveNewPassword() {
@@ -632,7 +639,7 @@ export default function GlazeShelfApp({
     if (newPassword !== confirmPassword)
       return setMsg("The two passwords do not match.");
     const r = await sb.auth.updateUser({ password: newPassword });
-    if (r.error) setMsg(r.error.message);
+    if (r.error) setMsg(friendlyError(r.error.message));
     else {
       setNewPassword("");
       setConfirmPassword("");
@@ -699,7 +706,7 @@ export default function GlazeShelfApp({
     if (emailChanged) updates.email = nextEmail;
     const r = await sb.auth.updateUser(updates);
     setAccountSaving(false);
-    if (r.error) return setMsg(r.error.message);
+    if (r.error) return setMsg(friendlyError(r.error.message));
     setProfilePhoto(null);
     setProfilePreview(avatarUrl);
     setCone(Number(profileDefaultCone));
@@ -716,7 +723,7 @@ export default function GlazeShelfApp({
     if (accountPassword !== accountPasswordConfirm)
       return setMsg("The two passwords do not match.");
     const r = await sb.auth.updateUser({ password: accountPassword });
-    if (r.error) return setMsg(r.error.message);
+    if (r.error) return setMsg(friendlyError(r.error.message));
     setAccountPassword("");
     setAccountPasswordConfirm("");
     setMsg("Password updated ✓");
@@ -912,7 +919,7 @@ export default function GlazeShelfApp({
             });
             setStudioPhotoUploading(false);
             cancelCrop();
-            if (r.error) return setMsg(r.error.message);
+            if (r.error) return setMsg(friendlyError(r.error.message));
             setMsg("Studio photo updated ✓");
             return await load();
           }
@@ -985,7 +992,7 @@ export default function GlazeShelfApp({
       countRequest ?? Promise.resolve(null),
     ]);
     setSearching(false);
-    if (r.error) setMsg(r.error.message);
+    if (r.error) setMsg(friendlyError(r.error.message));
     else {
       setMsg("");
       const incoming = r.data ?? [];
@@ -1066,7 +1073,7 @@ export default function GlazeShelfApp({
       p_location_label: null,
       p_visibility: "private",
     });
-    if (r.error) setMsg(r.error.message);
+    if (r.error) setMsg(friendlyError(r.error.message));
     else {
       setStudioName("");
       setMsg("Studio created ✓");
@@ -1074,11 +1081,18 @@ export default function GlazeShelfApp({
       setHomeStudioManagerOpen(false);
     }
   }
+  function friendlyError(message: string) {
+    if (!message) return message;
+    if (/jwt/i.test(message) && /future/i.test(message)) {
+      return "Your device's clock looks off, which is blocking sign-in. Check Settings > General > Date & Time (Set Automatically should be on), then try again.";
+    }
+    return message;
+  }
   async function joinStudio() {
     setJoinMsg("");
     if (!join.trim()) return setJoinMsg("Enter an invite code first.");
     const r = await sb.rpc("join_studio_by_code", { p_code: join });
-    if (r.error) return setJoinMsg(r.error.message);
+    if (r.error) return setJoinMsg(friendlyError(r.error.message));
     else {
       setJoin("");
       setJoinMsg("Studio joined ✓");
@@ -1090,7 +1104,7 @@ export default function GlazeShelfApp({
     setStudio(id);
     setTab("studio");
     const r = await sb.rpc("get_studio_shelf_v2", { p_studio_id: id });
-    if (r.error) setMsg(r.error.message);
+    if (r.error) setMsg(friendlyError(r.error.message));
     else setStudioShelf(r.data ?? []);
   }
   async function chooseHomeStudio(id: string) {
@@ -1111,7 +1125,7 @@ export default function GlazeShelfApp({
       return;
     }
     const r = await sb.rpc("regenerate_studio_join_code", { p_studio_id: id });
-    if (r.error) return setMsg(r.error.message);
+    if (r.error) return setMsg(friendlyError(r.error.message));
     setInviteCodeShown(r.data || "");
     await load();
   }
@@ -1129,7 +1143,7 @@ export default function GlazeShelfApp({
       p_studio_id: studioId,
       p_code: customCodeInput,
     });
-    if (r.error) return setMsg(r.error.message);
+    if (r.error) return setMsg(friendlyError(r.error.message));
     setInviteCodeShown(r.data || "");
     setEditingInviteCode(false);
     setCustomCodeInput("");
@@ -1139,7 +1153,7 @@ export default function GlazeShelfApp({
     setShowTransferPanel(true);
     setTransferTargetId("");
     const r = await sb.rpc("get_studio_members", { p_studio_id: studioId });
-    if (r.error) return setMsg(r.error.message);
+    if (r.error) return setMsg(friendlyError(r.error.message));
     setStudioMembers((r.data ?? []).filter((m: any) => !m.is_owner));
   }
   async function transferOwnership(studioId: string) {
@@ -1150,7 +1164,7 @@ export default function GlazeShelfApp({
       p_new_owner_user_id: transferTargetId,
     });
     setTransferring(false);
-    if (r.error) return setMsg(r.error.message);
+    if (r.error) return setMsg(friendlyError(r.error.message));
     setMsg("Studio ownership transferred ✓");
     setShowTransferPanel(false);
     await load();
@@ -1160,7 +1174,7 @@ export default function GlazeShelfApp({
     setDeletingStudio(true);
     const r = await sb.from("studios").delete().eq("id", studioId);
     setDeletingStudio(false);
-    if (r.error) return setMsg(r.error.message);
+    if (r.error) return setMsg(friendlyError(r.error.message));
     setShowDeleteStudioPanel(false);
     setDeleteStudioConfirmText("");
     if (studio === studioId) setStudio("");
@@ -1199,7 +1213,7 @@ export default function GlazeShelfApp({
             p_status: "available",
             p_notes: null,
           });
-    if (r.error) setMsg(r.error.message);
+    if (r.error) setMsg(friendlyError(r.error.message));
     else {
       updateResultAccess(x, "studio");
       setMsg(
@@ -1238,7 +1252,7 @@ export default function GlazeShelfApp({
             p_status: "owned",
             p_notes: null,
           });
-    if (r.error) setMsg(r.error.message);
+    if (r.error) setMsg(friendlyError(r.error.message));
     else {
       updateResultAccess(x, "mine");
       setMsg(`Added ${x.glaze_name || x.clay_name || x.material_name || x.name || "item"} to My Shelf ✓`);
@@ -1257,7 +1271,7 @@ export default function GlazeShelfApp({
       p_quantity: null,
       p_notes: null,
     });
-    if (r.error) setMsg(r.error.message);
+    if (r.error) setMsg(friendlyError(r.error.message));
     else {
       setMsg(`Saved ${x.glaze_name || x.item_name || "glaze"} to Want to Try ✓`);
       await load();
@@ -1329,7 +1343,7 @@ export default function GlazeShelfApp({
             p_notes: inventoryNotes.trim() || null,
           });
     setInventorySaving(false);
-    if (r.error) return setMsg(r.error.message);
+    if (r.error) return setMsg(friendlyError(r.error.message));
     setInventoryItem(null);
     setMsg("Inventory updated ✓");
     await load();
@@ -1381,7 +1395,7 @@ export default function GlazeShelfApp({
     setGlazeDetailLoading(false);
     if (r.error) {
       setGlazeDetail(null);
-      setMsg(r.error.message);
+      setMsg(friendlyError(r.error.message));
     } else setGlazeDetail(r.data);
   }
   async function openMaterialDetail(x: any) {
@@ -1429,7 +1443,7 @@ export default function GlazeShelfApp({
       p_surfaces: layers.map((x) => x.surface || "inside & outside"),
       p_placements: layers.map((x) => x.placement || "overall"),
     });
-    if (r.error) setMsg(r.error.message);
+    if (r.error) setMsg(friendlyError(r.error.message));
     else {
       setMsg("");
       setAnalysis(r.data?.[0]);
@@ -1462,7 +1476,7 @@ export default function GlazeShelfApp({
       p_prediction_compatibility: analysis?.compatibility || null,
       p_prediction_clay_influence: analysis?.clay_influence || null,
     });
-    if (r.error) return setMsg(r.error.message);
+    if (r.error) return setMsg(friendlyError(r.error.message));
     const newRecipeId =
       typeof r.data === "string" ? r.data : r.data?.[0]?.id || r.data?.id || "";
     setRecipeName("");
@@ -1502,7 +1516,7 @@ export default function GlazeShelfApp({
       p_prediction_compatibility: analysis?.compatibility || null,
       p_prediction_clay_influence: analysis?.clay_influence || null,
     });
-    if (r.error) return setMsg(r.error.message);
+    if (r.error) return setMsg(friendlyError(r.error.message));
     setMsg("Recipe updated ✓");
     await load();
   }
@@ -1514,7 +1528,7 @@ export default function GlazeShelfApp({
     )
       return;
     const r = await sb.from("recipes").delete().eq("id", id);
-    if (r.error) setMsg(r.error.message);
+    if (r.error) setMsg(friendlyError(r.error.message));
     else {
       if (recipe === id) setRecipe("");
       setRecipeDetail([]);
@@ -1530,17 +1544,10 @@ export default function GlazeShelfApp({
     )
       return;
     const r = await sb.from("firings").delete().eq("id", id);
-    if (r.error) return setMsg(r.error.message);
+    if (r.error) return setMsg(friendlyError(r.error.message));
     if (firingDetail?.firing_id === id) setFiringDetail(null);
     setMsg("Firing deleted ✓");
     await load();
-  }
-  async function deleteFiringPhoto(photoId: string) {
-    if (!window.confirm("Delete this photo? This can't be undone.")) return;
-    const r = await sb.from("firing_photos").delete().eq("id", photoId);
-    if (r.error) return setMsg(r.error.message);
-    setFiringDetailPhotos((current) => current.filter((p) => p.photo_id !== photoId));
-    setMsg("Photo deleted ✓");
   }
   async function toggleRecipeStudioShare(recipeId: string, currentlyShared: boolean) {
     if (!currentStudio) return setMsg("Join or create a studio first.");
@@ -1552,7 +1559,7 @@ export default function GlazeShelfApp({
           p_studio_id: currentStudio.studio_id,
         });
     setSharingRecipeId("");
-    if (r.error) return setMsg(r.error.message);
+    if (r.error) return setMsg(friendlyError(r.error.message));
     setMsg(currentlyShared ? "Recipe removed from studio ✓" : "Recipe shared with studio ✓");
     await load();
   }
@@ -1564,12 +1571,12 @@ export default function GlazeShelfApp({
       p_studio_id: currentStudio.studio_id,
     });
     setStudioRecipesLoading(false);
-    if (r.error) return setMsg(r.error.message);
+    if (r.error) return setMsg(friendlyError(r.error.message));
     setStudioRecipesList(r.data ?? []);
   }
   async function openRecipe(id: string) {
     const r = await sb.rpc("get_recipe_detail_v2", { p_recipe_id: id });
-    if (r.error) setMsg(r.error.message);
+    if (r.error) setMsg(friendlyError(r.error.message));
     else setRecipeDetail(r.data ?? []);
   }
   function applyRecipeToBuilder(detailRows: any[]) {
@@ -1624,7 +1631,7 @@ export default function GlazeShelfApp({
       return;
     }
     const r = await sb.rpc("get_recipe_detail_v2", { p_recipe_id: id });
-    if (r.error) return setMsg(r.error.message);
+    if (r.error) return setMsg(friendlyError(r.error.message));
     applyRecipeToBuilder(r.data ?? []);
     setMsg("Recipe loaded into Builder ✓");
     window.requestAnimationFrame(() => window.scrollTo(0, 0));
@@ -1712,7 +1719,7 @@ export default function GlazeShelfApp({
     });
     if (r.error) {
       setFiringSaving(false);
-      return setMsg(r.error.message);
+      return setMsg(friendlyError(r.error.message));
     }
     try {
       for (const f of beforePhoto) await uploadFiringPhoto(completingFiringId, f, "before");
@@ -1757,7 +1764,7 @@ export default function GlazeShelfApp({
       });
       if (r.error) {
         setFiringSaving(false);
-        return setMsg(r.error.message);
+        return setMsg(friendlyError(r.error.message));
       }
       try {
         for (const f of beforePhoto) await uploadFiringPhoto(completingFiringId, f, "before");
@@ -1798,7 +1805,7 @@ export default function GlazeShelfApp({
     });
     if (r.error) {
       setFiringSaving(false);
-      return setMsg(r.error.message);
+      return setMsg(friendlyError(r.error.message));
     }
     try {
       for (const f of beforePhoto) await uploadFiringPhoto(r.data, f, "before");
@@ -1826,7 +1833,7 @@ export default function GlazeShelfApp({
       p_shared: nextShared,
     });
     setSharingFiringId("");
-    if (r.error) return setMsg(r.error.message);
+    if (r.error) return setMsg(friendlyError(r.error.message));
     setFirings((current) =>
       current.map((item) =>
         item.firing_id === firingId ? { ...item, shared: nextShared } : item,
@@ -1851,7 +1858,7 @@ export default function GlazeShelfApp({
     if (r.error) {
       setExploreLoading(false);
       setExploreResults([]);
-      return setMsg(r.error.message);
+      return setMsg(friendlyError(r.error.message));
     }
     const signedRows = await Promise.all(
       (r.data ?? []).map(async (item: any) => {
@@ -1926,7 +1933,7 @@ export default function GlazeShelfApp({
       p_comment: newComment.trim(),
     });
     setCommentPosting(false);
-    if (r.error) return setMsg(r.error.message);
+    if (r.error) return setMsg(friendlyError(r.error.message));
     setNewComment("");
     const refreshed = await sb.rpc("get_firing_comments", {
       p_firing_id: firingDetail.firing_id,
@@ -1935,7 +1942,7 @@ export default function GlazeShelfApp({
   }
   async function deleteFiringComment(commentId: string) {
     const r = await sb.rpc("delete_firing_comment", { p_comment_id: commentId });
-    if (r.error) return setMsg(r.error.message);
+    if (r.error) return setMsg(friendlyError(r.error.message));
     setFiringComments((current) => current.filter((c) => c.comment_id !== commentId));
   }
   const combinedMaterials = useMemo(() => {
@@ -3006,6 +3013,11 @@ export default function GlazeShelfApp({
                     View Details <ArrowRight size={16} />
                   </button>
                 )}
+                {x.item_type === "glaze" && (
+                  <button className="detail-link" onClick={() => openGlazeDetail(x)}>
+                    View Details <ArrowRight size={16} />
+                  </button>
+                )}
                 {canEditStudio && (
                   <button
                     className="inventory-edit studio studio-card-edit"
@@ -3446,6 +3458,9 @@ export default function GlazeShelfApp({
                 <p>Find stable decorative colors for painting and surface design.</p>
               )}
             </section>
+            <button className="btn explore-firings-button" onClick={openExplore}>
+              <Compass size={18} /> Explore Shared Firings
+            </button>
             <div className="grid finder-kind-grid">
               <button
                 className={
@@ -4806,17 +4821,9 @@ export default function GlazeShelfApp({
                       <span className="eyebrow">PHOTOS</span>
                       <div className="firing-photo-grid">
                         {firingDetailPhotos.map((item) => (
-                          <figure key={item.photo_id} className="firing-photo-item">
+                          <figure key={item.photo_id}>
                             <img src={item.signedUrl} alt={`${item.photo_type} firing`} />
                             <figcaption>{titleCase(item.photo_type)}</figcaption>
-                            <button
-                              type="button"
-                              className="firing-photo-delete"
-                              aria-label="Delete photo"
-                              onClick={() => deleteFiringPhoto(item.photo_id)}
-                            >
-                              ×
-                            </button>
                           </figure>
                         ))}
                       </div>
