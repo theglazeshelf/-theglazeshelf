@@ -486,6 +486,9 @@ details.recipe-card[open] .recipe-card-summary{margin-bottom:4px}
 .journal-card{gap:10px;padding:17px}
 .journal-form-body{border-top:1px solid #6450c822;background:#fff}
 .journal-step{color:var(--purple);font-size:.76rem;font-weight:900;letter-spacing:.04em}
+.journal-quickpick-toggle{background:none;border:0;color:var(--purple);font-weight:800;font-size:.8rem;text-align:left;padding:2px 0;cursor:pointer;text-decoration:underline}
+.journal-quickpick-list{display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto;border:1px solid var(--line);border-radius:12px;padding:10px;margin-top:6px}
+.journal-quickpick-item{display:flex;align-items:center;gap:9px;font-size:.86rem;font-weight:700}
 .journal-two-column{display:grid;grid-template-columns:1fr 1fr;gap:9px}
 .journal-two-column .field-label{margin-top:0}
 .journal-section-divider{height:1px;margin:5px 0;background:#17324d14}
@@ -585,8 +588,6 @@ details.explore-card[open] .explore-card-summary{border-bottom:1px solid var(--l
 .firing-learning-section p{margin:8px 0 0;font-size:.78rem;line-height:1.45}
 .firing-photo-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:9px}
 .firing-photo-grid figure{margin:0;overflow:hidden;border:1px solid var(--line);border-radius:13px;background:#fff}
-.firing-photo-item{position:relative}
-.firing-photo-delete{position:absolute;top:6px;right:6px;width:26px;height:26px;border-radius:50%;border:0;background:#00000075;color:#fff;font-size:1.1rem;line-height:1;display:grid;place-items:center;cursor:pointer}
 .firing-photo-grid img{display:block;width:100%;aspect-ratio:1/1;object-fit:cover}
 .firing-photo-grid figcaption{padding:7px;color:var(--muted);font-size:.7rem;font-weight:850;text-align:center}
 .firing-detail-close{width:100%;margin-top:7px}
