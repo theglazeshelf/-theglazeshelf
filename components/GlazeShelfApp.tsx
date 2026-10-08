@@ -177,7 +177,10 @@ export default function GlazeShelfApp({
     [phase1Cone, setPhase1Cone] = useState("glaze:6"),
     [phase2Cone, setPhase2Cone] = useState(""),
     [useQuickGlazePick, setUseQuickGlazePick] = useState(false),
-    [quickPickGlazeIds, setQuickPickGlazeIds] = useState<string[]>([]),
+    [quickPickGlazes, setQuickPickGlazes] = useState<{ id: string; name: string; manufacturer?: string }[]>([]),
+    [quickPickQuery, setQuickPickQuery] = useState(""),
+    [quickPickResults, setQuickPickResults] = useState<any[]>([]),
+    [quickPickSearching, setQuickPickSearching] = useState(false),
     [projectDescription, setProjectDescription] = useState(""),
     [orientation, setOrientation] = useState("vertical"),
     [texture, setTexture] = useState("smooth"),
@@ -263,7 +266,8 @@ export default function GlazeShelfApp({
     [searching, setSearching] = useState(false),
     [totalResults, setTotalResults] = useState(0),
     [hasMoreResults, setHasMoreResults] = useState(false),
-    [lastSearchQuick, setLastSearchQuick] = useState(false);
+    [lastSearchQuick, setLastSearchQuick] = useState(false),
+    [clayDefaultView, setClayDefaultView] = useState(true);
   const [showLoginSpin, setShowLoginSpin] = useState(false);
   const [shelfQuery, setShelfQuery] = useState(""),
     [shelfSort, setShelfSort] = useState("name"),
@@ -983,6 +987,7 @@ export default function GlazeShelfApp({
       });
       if (!append) countRequest = sb.rpc("count_glazes_search", params);
     } else {
+      if (!append) setClayDefaultView(false);
       const params = { p_query: q.trim() || null, p_cone: null };
       resultRequest = sb.rpc("search_clays_paged", {
         ...params,
@@ -1048,10 +1053,11 @@ export default function GlazeShelfApp({
     setColorSearch("");
     setFinderCone("");
     setSearchScope("all");
-    setResults([]);
-    setTotalResults(0);
+    setResults(myShelfClays);
+    setTotalResults(myShelfClays.length);
     setHasMoreResults(false);
-    setSearchStarted(false);
+    setSearchStarted(true);
+    setClayDefaultView(true);
     setMsg("");
     setTab("find");
     window.requestAnimationFrame(() => window.scrollTo(0, 0));
@@ -1656,7 +1662,9 @@ export default function GlazeShelfApp({
     setPhase1Cone(recipeCone ? "glaze:" + Number(recipeCone) : "glaze:6");
     setPhase2Cone("");
     setUseQuickGlazePick(false);
-    setQuickPickGlazeIds([]);
+    setQuickPickGlazes([]);
+    setQuickPickQuery("");
+    setQuickPickResults([]);
     setRecipeDetail([]);
     setCompletingFiringId("");
     setEditingHadResult(false);
@@ -1764,9 +1772,31 @@ export default function GlazeShelfApp({
     setMsg("Firing updated ✓");
     await load();
   }
+  async function searchQuickPickGlazes(query: string) {
+    setQuickPickQuery(query);
+    if (!query.trim()) {
+      setQuickPickResults([]);
+      return;
+    }
+    setQuickPickSearching(true);
+    const r = await sb.rpc("find_glazes_paged", {
+      p_query: query.trim(),
+      p_cone: null,
+      p_color_family: null,
+      p_effect: null,
+      p_user_id: session.user.id,
+      p_studio_id: studio || null,
+      p_access: "all",
+      p_limit: 20,
+      p_offset: 0,
+    });
+    setQuickPickSearching(false);
+    if (r.error) return setMsg(friendlyError(r.error.message));
+    setQuickPickResults(r.data ?? []);
+  }
   async function fire(mode: "progress" | "complete") {
     if (useQuickGlazePick) {
-      if (quickPickGlazeIds.length === 0) {
+      if (quickPickGlazes.length === 0) {
         return setMsg("Pick at least one glaze for this firing.");
       }
     } else if (!recipe) {
@@ -1788,7 +1818,7 @@ export default function GlazeShelfApp({
     let activeRecipeId = recipe;
     if (useQuickGlazePick && !completingFiringId) {
       const made = await sb.rpc("create_recipe_from_glazes", {
-        p_glaze_ids: quickPickGlazeIds,
+        p_glaze_ids: quickPickGlazes.map((g) => g.id),
         p_cone: finalCone || null,
       });
       if (made.error) {
@@ -1870,7 +1900,9 @@ export default function GlazeShelfApp({
     setFiringSaving(false);
     setRecipe("");
     setUseQuickGlazePick(false);
-    setQuickPickGlazeIds([]);
+    setQuickPickGlazes([]);
+    setQuickPickQuery("");
+    setQuickPickResults([]);
     setBeforePhoto([]);
     setPhoto([]);
     setJournalFormOpen(false);
@@ -2150,6 +2182,18 @@ export default function GlazeShelfApp({
       ? "safe"
       : "caution";
   const myGlazeCount = shelf.filter((x) => x.item_type === "glaze").length;
+  const myShelfClays = useMemo(
+    () =>
+      shelf
+        .filter((x) => x.item_type === "clay")
+        .map((x) => ({
+          ...x,
+          item_type: "clay",
+          clay_id: x.item_id,
+          clay_name: x.item_name,
+        })),
+    [shelf],
+  );
   if (recovery)
     return (
       <main className="simple-auth-shell">
@@ -3551,13 +3595,7 @@ export default function GlazeShelfApp({
                   "btn finder-kind-button " +
                   (kind === "clay" ? "primary" : "ghost")
                 }
-                onClick={() => {
-                  setKind("clay");
-                  setResults([]);
-                  setTotalResults(0);
-                  setHasMoreResults(false);
-                  setSearchStarted(false);
-                }}
+                onClick={openClayFinder}
               >
                 Clay
               </button>
@@ -3786,11 +3824,22 @@ export default function GlazeShelfApp({
                 <input
                   className="input"
                   aria-label="Search clay"
-                  placeholder="Search clay bodies"
+                  placeholder="Search all clay bodies"
                   enterKeyHint="search"
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
                 />
+                {(q || !clayDefaultView) && (
+                  <button
+                    className="quick-search-clear"
+                    type="button"
+                    aria-label="Back to My Shelf"
+                    onClick={openClayFinder}
+                  >
+                    <span aria-hidden="true">×</span>
+                    <span>Clear</span>
+                  </button>
+                )}
                 <button
                   className="btn primary search-action"
                   type="submit"
@@ -3814,17 +3863,25 @@ export default function GlazeShelfApp({
                         : searchScope === "available"
                           ? "on My + Studio Shelves"
                         : kind === "underglaze" ? "in All Underglazes" : "in All Glazes"
-                    : "for clay"}
+                    : clayDefaultView
+                      ? "on My Shelf"
+                      : "in All Clay"}
                 </span>
               </div>
             )}
             {searchStarted && !searching && results.length === 0 && (
               <div className="card finder-empty">
-                <strong>No exact matches yet.</strong>
+                <strong>
+                  {kind === "clay" && clayDefaultView
+                    ? "No clay on your shelf yet."
+                    : "No exact matches yet."}
+                </strong>
                 <p className="muted">
                   {kind === "glaze"
                     ? "Try a broader effect such as “fluid,” remove the color, or search All Glazes."
-                    : "Try a broader name, brand, or product code."}
+                    : kind === "clay" && clayDefaultView
+                      ? "Search all clay bodies above to find one and add it to your shelf."
+                      : "Try a broader name, brand, or product code."}
                 </p>
               </div>
             )}
@@ -4199,14 +4256,7 @@ export default function GlazeShelfApp({
             <button
               className="btn clay-select-button"
               style={{ width: "100%", marginBottom: 8 }}
-              onClick={() => {
-                setKind("clay");
-                setQ("");
-                setResults([]);
-                setTotalResults(0);
-                setHasMoreResults(false);
-                setTab("find");
-              }}
+              onClick={openClayFinder}
             >
               {clay?.clay_name ? `Clay: ${clay.clay_name}` : "+ Select Clay"}
             </button>
@@ -4548,35 +4598,70 @@ export default function GlazeShelfApp({
               ) : (
                 <div className="field-label">
                   Glazes for this Firing
-                  <div className="journal-quickpick-list">
-                    {shelf
-                      .filter((x) => x.item_type === "glaze")
-                      .map((x) => (
-                        <label className="journal-quickpick-item" key={x.item_id}>
-                          <input
-                            type="checkbox"
-                            checked={quickPickGlazeIds.includes(x.item_id)}
-                            onChange={(e) => {
-                              setQuickPickGlazeIds((current) =>
-                                e.target.checked
-                                  ? [...current, x.item_id]
-                                  : current.filter((id) => id !== x.item_id),
-                              );
-                            }}
-                          />
-                          {x.item_name}
-                        </label>
+                  {quickPickGlazes.length > 0 && (
+                    <div className="journal-quickpick-chips">
+                      {quickPickGlazes.map((g) => (
+                        <span className="journal-quickpick-chip" key={g.id}>
+                          {g.name}
+                          <button
+                            type="button"
+                            aria-label={`Remove ${g.name}`}
+                            onClick={() =>
+                              setQuickPickGlazes((current) => current.filter((x) => x.id !== g.id))
+                            }
+                          >
+                            ×
+                          </button>
+                        </span>
                       ))}
-                    {shelf.filter((x) => x.item_type === "glaze").length === 0 && (
-                      <p className="muted">No glazes on your shelf yet — add some first.</p>
-                    )}
-                  </div>
+                    </div>
+                  )}
+                  <input
+                    className="input"
+                    placeholder="Search the glaze catalog…"
+                    value={quickPickQuery}
+                    onChange={(e) => searchQuickPickGlazes(e.target.value)}
+                  />
+                  {quickPickSearching && <p className="muted">Searching…</p>}
+                  {!quickPickSearching && quickPickResults.length > 0 && (
+                    <div className="journal-quickpick-list">
+                      {quickPickResults
+                        .filter((x) => !quickPickGlazes.some((g) => g.id === (x.glaze_id || x.id)))
+                        .map((x) => {
+                          const id = x.glaze_id || x.id;
+                          const name = x.glaze_name || x.name;
+                          return (
+                            <button
+                              type="button"
+                              className="journal-quickpick-result"
+                              key={id}
+                              onClick={() => {
+                                setQuickPickGlazes((current) => [
+                                  ...current,
+                                  { id, name, manufacturer: x.manufacturer },
+                                ]);
+                                setQuickPickQuery("");
+                                setQuickPickResults([]);
+                              }}
+                            >
+                              <span>
+                                <strong>{name}</strong>
+                                {x.manufacturer && <span className="muted"> · {x.manufacturer}</span>}
+                              </span>
+                              <Plus size={16} />
+                            </button>
+                          );
+                        })}
+                    </div>
+                  )}
                   <button
                     type="button"
                     className="journal-quickpick-toggle"
                     onClick={() => {
                       setUseQuickGlazePick(false);
-                      setQuickPickGlazeIds([]);
+                      setQuickPickGlazes([]);
+                      setQuickPickQuery("");
+                      setQuickPickResults([]);
                     }}
                   >
                     Use a saved recipe instead
