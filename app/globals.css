@@ -624,3 +624,5 @@ details.explore-card[open] .explore-card-summary{border-bottom:1px solid var(--l
 .catalog-glaze-photo.detail figcaption{position:absolute;right:0;bottom:0;left:0;padding:9px 12px;background:linear-gradient(180deg,transparent,#102b43c7);color:#fff;font-size:.7rem;font-weight:700;line-height:1.35}
 .builder-layer-heading{flex:1}
 @media (max-width:380px){.catalog-item-heading{gap:9px}.catalog-glaze-photo.thumbnail{width:70px;height:70px}.catalog-glaze-photo.builder{width:58px;height:58px}.catalog-glaze-placeholder span{font-size:.52rem}}
+.camera-button{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;cursor:pointer}
+.custom-cone-input{width:100%}
