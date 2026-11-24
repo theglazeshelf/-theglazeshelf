@@ -235,7 +235,9 @@ export default function GlazeShelfApp({
     [photo, setPhoto] = useState<File[]>([]),
     [preview, setPreview] = useState(""),
     [firingDetail, setFiringDetail] = useState<any>(null),
+    [firingDetailIsMine, setFiringDetailIsMine] = useState(true),
     [firingDetailPhotos, setFiringDetailPhotos] = useState<any[]>([]),
+    [deletingPhotoId, setDeletingPhotoId] = useState(""),
     [firingComments, setFiringComments] = useState<any[]>([]),
     [newComment, setNewComment] = useState(""),
     [commentPosting, setCommentPosting] = useState(false),
@@ -539,16 +541,32 @@ export default function GlazeShelfApp({
       updated_at: row.updated_at,
     };
   }
+  async function withRetry<T extends { error: any }>(
+    fn: () => Promise<T>,
+    attempts = 2,
+    delayMs = 600,
+  ): Promise<T> {
+    let result = await fn();
+    let tries = 1;
+    while (result?.error && tries < attempts) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      result = await fn();
+      tries++;
+    }
+    return result;
+  }
   async function load(preferredStudioId = "") {
     const [a, b, c, d, materials, photoRows] = await Promise.all([
-      sb.rpc("get_my_shelf_v2"),
-      sb.rpc("get_my_recipes_v2"),
-      sb.rpc("get_my_studios"),
-      sb.rpc("get_my_firings_v2"),
-      sb
-        .from("user_material_inventory")
-        .select("status,quantity,container_size,notes,updated_at,material:materials(id,name,sku,cone_min,cone_max,firing_range,finish,opacity,manufacturer:manufacturers(name))")
-        .eq("user_id", session.user.id),
+      withRetry(() => sb.rpc("get_my_shelf_v2")),
+      withRetry(() => sb.rpc("get_my_recipes_v2")),
+      withRetry(() => sb.rpc("get_my_studios")),
+      withRetry(() => sb.rpc("get_my_firings_v2")),
+      withRetry(() =>
+        sb
+          .from("user_material_inventory")
+          .select("status,quantity,container_size,notes,updated_at,material:materials(id,name,sku,cone_min,cone_max,firing_range,finish,opacity,manufacturer:manufacturers(name))")
+          .eq("user_id", session.user.id),
+      ),
       sb
         .from("glaze_catalog_photos")
         .select("id,glaze_id,storage_path,alt_text,caption")
@@ -593,11 +611,13 @@ export default function GlazeShelfApp({
       let studioError: any = null;
       if (selectedStudioId) {
         const [e, materialRows] = await Promise.all([
-          sb.rpc("get_studio_shelf_v2", { p_studio_id: selectedStudioId }),
-          sb
-            .from("studio_material_inventory")
-            .select("status,quantity,container_size,notes,updated_at,material:materials(id,name,sku,cone_min,cone_max,firing_range,finish,opacity,manufacturer:manufacturers(name))")
-            .eq("studio_id", selectedStudioId),
+          withRetry(() => sb.rpc("get_studio_shelf_v2", { p_studio_id: selectedStudioId })),
+          withRetry(() =>
+            sb
+              .from("studio_material_inventory")
+              .select("status,quantity,container_size,notes,updated_at,material:materials(id,name,sku,cone_min,cone_max,firing_range,finish,opacity,manufacturer:manufacturers(name))")
+              .eq("studio_id", selectedStudioId),
+          ),
         ]);
         studioError = e.error || materialRows.error;
         if (!studioError) {
@@ -1469,6 +1489,16 @@ export default function GlazeShelfApp({
       setAnalysis(r.data?.[0]);
     }
   }
+  function resetBuilder() {
+    setLayers([]);
+    setClay(null);
+    setCone(6);
+    setProjectDescription("");
+    setOrientation("vertical");
+    setTexture("smooth");
+    setGoal("");
+    setAnalysis(null);
+  }
   async function saveRecipe(andFire?: boolean) {
     const name =
       recipeName.trim() ||
@@ -1505,8 +1535,10 @@ export default function GlazeShelfApp({
     if (andFire && newRecipeId) {
       setMsg("Recipe saved ✓ — log your firing below");
       startFiring(newRecipeId, cone);
+      resetBuilder();
       return;
     }
+    resetBuilder();
     setMsg("Recipe saved ✓");
     setShelfView("recipes");
     setTab("shelf");
@@ -1981,8 +2013,9 @@ export default function GlazeShelfApp({
       .createSignedUrl(r.data[0].storage_path, 3600);
     if (s.data) setPreview(s.data.signedUrl);
   }
-  async function openFiringDetail(id: string) {
+  async function openFiringDetail(id: string, isMine = true) {
     setFiringDetailLoading(true);
+    setFiringDetailIsMine(isMine);
     setFiringDetail({ firing_id: id });
     setFiringDetailPhotos([]);
     setFiringComments([]);
@@ -2030,6 +2063,16 @@ export default function GlazeShelfApp({
     const r = await sb.rpc("delete_firing_comment", { p_comment_id: commentId });
     if (r.error) return setMsg(friendlyError(r.error.message));
     setFiringComments((current) => current.filter((c) => c.comment_id !== commentId));
+  }
+  async function deleteFiringPhoto(photoId: string) {
+    if (!window.confirm("Delete this photo? This can't be undone.")) return;
+    setDeletingPhotoId(photoId);
+    const r = await sb.rpc("delete_firing_photo", { p_photo_id: photoId });
+    setDeletingPhotoId("");
+    if (r.error) return setMsg(friendlyError(r.error.message));
+    if (r.data) await sb.storage.from("firing-photos").remove([r.data]);
+    setFiringDetailPhotos((current) => current.filter((p) => p.photo_id !== photoId));
+    setMsg("Photo deleted ✓");
   }
   const combinedMaterials = useMemo(() => {
     const items = new Map<string, any>();
@@ -4147,7 +4190,7 @@ export default function GlazeShelfApp({
                       {item.movement_result && <span>{item.movement_result}</span>}
                     </div>
                     {item.notes && <p>{item.notes}</p>}
-                    <button className="btn secondary explore-detail-button" type="button" onClick={() => openFiringDetail(item.firing_id)}>
+                    <button className="btn secondary explore-detail-button" type="button" onClick={() => openFiringDetail(item.firing_id, false)}>
                       View Firing Details <ArrowRight size={16} />
                     </button>
                   </div>
@@ -5034,6 +5077,17 @@ export default function GlazeShelfApp({
                           <figure key={item.photo_id}>
                             <img src={item.signedUrl} alt={`${item.photo_type} firing`} />
                             <figcaption>{titleCase(item.photo_type)}</figcaption>
+                            {firingDetailIsMine && (
+                              <button
+                                type="button"
+                                className="firing-photo-delete"
+                                aria-label="Delete photo"
+                                disabled={deletingPhotoId === item.photo_id}
+                                onClick={() => deleteFiringPhoto(item.photo_id)}
+                              >
+                                {deletingPhotoId === item.photo_id ? "…" : "×"}
+                              </button>
+                            )}
                           </figure>
                         ))}
                       </div>
