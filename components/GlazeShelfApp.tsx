@@ -17,6 +17,7 @@ import {
   Eye,
   EyeOff,
   ImageIcon,
+  Camera,
 } from "lucide-react";
 import { AppHeader, BottomNavigation } from "./AppNavigation";
 import {
@@ -176,6 +177,7 @@ export default function GlazeShelfApp({
     [bisqueCone, setBisqueCone] = useState("06"),
     [phase1Cone, setPhase1Cone] = useState("glaze:6"),
     [phase2Cone, setPhase2Cone] = useState(""),
+    [customConeOn, setCustomConeOn] = useState<{ p1: boolean; p2: boolean }>({ p1: false, p2: false }),
     [useQuickGlazePick, setUseQuickGlazePick] = useState(false),
     [quickPickGlazes, setQuickPickGlazes] = useState<{ id: string; name: string; manufacturer?: string }[]>([]),
     [quickPickQuery, setQuickPickQuery] = useState(""),
@@ -1121,6 +1123,71 @@ export default function GlazeShelfApp({
     if (coneValue) return "glaze:" + coneValue;
     return "";
   }
+  const BISQUE_CONES = ["010", "08", "06", "05", "04"];
+  const GLAZE_CONES = [5, 6, 7, 8, 9, 10];
+  function coneCustomKind(v: string): "" | "glaze" | "bisque" {
+    if (!v) return "";
+    if (v.startsWith("bisque:") && !BISQUE_CONES.includes(v.slice(7))) return "bisque";
+    if (v.startsWith("glaze:") && !GLAZE_CONES.map(String).includes(v.slice(6))) return "glaze";
+    return "";
+  }
+  function coneError(v: string): string {
+    const kind = v.startsWith("bisque:") ? "bisque" : v.startsWith("glaze:") ? "glaze" : "";
+    if (!kind) return "";
+    const text = v.slice(kind === "bisque" ? 7 : 6).trim();
+    if (!text) return "Enter your custom cone number, or pick one from the list.";
+    if (kind === "glaze") {
+      const n = Number(text);
+      if (!Number.isFinite(n) || n <= 0 || n > 20) return "Custom glaze cone should be a number like 5.5 or 11.";
+    } else if (!/^\d{1,3}$/.test(text)) {
+      return "Custom bisque cone should be digits only, like 022 or 03.";
+    }
+    return "";
+  }
+  function renderConeSelect(value: string, setValue: (v: string) => void, emptyLabel: string, keyPrefix: "p1" | "p2") {
+    const on = customConeOn[keyPrefix];
+    const kind: "" | "glaze" | "bisque" = on ? (value.startsWith("bisque:") ? "bisque" : "glaze") : "";
+    const setOn = (flag: boolean) => setCustomConeOn((cur) => ({ ...cur, [keyPrefix]: flag }));
+    return (
+      <>
+        <select
+          className="select"
+          value={kind ? "custom-" + kind : value}
+          onChange={(e) => {
+            const v = e.target.value;
+            if (v === "custom-glaze") { setOn(true); setValue("glaze:"); }
+            else if (v === "custom-bisque") { setOn(true); setValue("bisque:"); }
+            else { setOn(false); setValue(v); }
+          }}
+        >
+          <option value="">{emptyLabel}</option>
+          <optgroup label="Bisque">
+            {BISQUE_CONES.map((c) => (
+              <option key={keyPrefix + "b" + c} value={"bisque:" + c}>Bisque Cone {c}</option>
+            ))}
+            <option value="custom-bisque">Custom bisque cone…</option>
+          </optgroup>
+          <optgroup label="Glaze">
+            {GLAZE_CONES.map((c) => (
+              <option key={keyPrefix + "g" + c} value={"glaze:" + c}>Glaze Cone {c}</option>
+            ))}
+            <option value="custom-glaze">Custom glaze cone…</option>
+          </optgroup>
+        </select>
+        {kind && (
+          <input
+            className="input custom-cone-input"
+            type="text"
+            inputMode={kind === "glaze" ? "decimal" : "numeric"}
+            placeholder={kind === "glaze" ? "Cone number, e.g. 5.5 or 11" : "Cone number, e.g. 022 or 03"}
+            value={value.slice(kind === "bisque" ? 7 : 6)}
+            onChange={(e) => setValue(kind + ":" + e.target.value.trim())}
+            style={{ marginTop: 8 }}
+          />
+        )}
+      </>
+    );
+  }
   function friendlyError(message: string) {
     if (!message) return message;
     if (/jwt/i.test(message) && /future/i.test(message)) {
@@ -1693,6 +1760,7 @@ export default function GlazeShelfApp({
     if (recipeCone) setCone(Number(recipeCone));
     setPhase1Cone(recipeCone ? "glaze:" + Number(recipeCone) : "glaze:6");
     setPhase2Cone("");
+    setCustomConeOn({ p1: coneCustomKind("glaze:" + Number(recipeCone || 6)) !== "", p2: false });
     setUseQuickGlazePick(false);
     setQuickPickGlazes([]);
     setQuickPickQuery("");
@@ -1724,6 +1792,7 @@ export default function GlazeShelfApp({
     setCone(f.cone || 6);
     setPhase1Cone(encodeCone(f.cone || 0, f.bisque_cone || ""));
     setPhase2Cone("");
+    setCustomConeOn({ p1: coneCustomKind(encodeCone(f.cone || 0, f.bisque_cone || "")) !== "", p2: false });
     setGlazedDate(f.glazed_at || "");
     setFiringDate(
       f.fired_at
@@ -1769,6 +1838,8 @@ export default function GlazeShelfApp({
   }
   async function saveFiringUpdate() {
     if (!completingFiringId) return;
+    const coneProblem = coneError(phase1Cone) || coneError(phase2Cone);
+    if (coneProblem) return setMsg(coneProblem);
     const d1 = decodeCone(phase1Cone);
     const d2 = phase2Cone ? decodeCone(phase2Cone) : null;
     const finalCone = d2?.cone || d1.cone;
@@ -1841,6 +1912,8 @@ export default function GlazeShelfApp({
     if (mode === "complete" && !firingDate) {
       return setMsg("Choose the fired-on date to complete this firing.");
     }
+    const coneProblem = coneError(phase1Cone) || coneError(phase2Cone);
+    if (coneProblem) return setMsg(coneProblem);
     const d1 = decodeCone(phase1Cone);
     const d2 = phase2Cone ? decodeCone(phase2Cone) : null;
     const finalCone = d2?.cone || d1.cone;
@@ -4736,26 +4809,25 @@ export default function GlazeShelfApp({
                   multiple
                   onChange={(e) => setBeforePhoto(Array.from(e.target.files ?? []))}
                 />
+                {beforePhoto.length > 0 && <span className="muted">{beforePhoto.length} photo{beforePhoto.length === 1 ? "" : "s"} ready to upload</span>}
+              </label>
+              <label className="btn ghost camera-button">
+                <Camera size={17} /> Take a Before Photo
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) setBeforePhoto((cur) => [...cur, f]);
+                    e.target.value = "";
+                  }}
+                />
               </label>
               <label className="field-label">
                 Firing Cone
-                <select
-                  className="select"
-                  value={phase1Cone}
-                  onChange={(e) => setPhase1Cone(e.target.value)}
-                >
-                  <option value="">N/A</option>
-                  <optgroup label="Bisque">
-                    {["010", "08", "06", "05", "04"].map((value) => (
-                      <option key={"b" + value} value={"bisque:" + value}>Bisque Cone {value}</option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="Glaze">
-                    {[5, 6, 7, 8, 9, 10].map((value) => (
-                      <option key={"g" + value} value={"glaze:" + value}>Glaze Cone {value}</option>
-                    ))}
-                  </optgroup>
-                </select>
+                {renderConeSelect(phase1Cone, setPhase1Cone, "N/A", "p1")}
               </label>
               <label className="field-label">
                 Project Orientation
@@ -4773,23 +4845,7 @@ export default function GlazeShelfApp({
               </label>
               <label className="field-label">
                 Second Firing Cone <span className="muted">(optional — if this piece went through a second firing, like bisque then glaze)</span>
-                <select
-                  className="select"
-                  value={phase2Cone}
-                  onChange={(e) => setPhase2Cone(e.target.value)}
-                >
-                  <option value="">Not applicable</option>
-                  <optgroup label="Bisque">
-                    {["010", "08", "06", "05", "04"].map((value) => (
-                      <option key={"b2" + value} value={"bisque:" + value}>Bisque Cone {value}</option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="Glaze">
-                    {[5, 6, 7, 8, 9, 10].map((value) => (
-                      <option key={"g2" + value} value={"glaze:" + value}>Glaze Cone {value}</option>
-                    ))}
-                  </optgroup>
-                </select>
+                {renderConeSelect(phase2Cone, setPhase2Cone, "Not applicable", "p2")}
               </label>
               <label className="field-label">
                 Movement After Firing
@@ -4844,6 +4900,21 @@ export default function GlazeShelfApp({
                   accept="image/*"
                   multiple
                   onChange={(e) => setPhoto(Array.from(e.target.files ?? []))}
+                />
+                {photo.length > 0 && <span className="muted">{photo.length} photo{photo.length === 1 ? "" : "s"} ready to upload</span>}
+              </label>
+              <label className="btn ghost camera-button">
+                <Camera size={17} /> Take an After Photo
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) setPhoto((cur) => [...cur, f]);
+                    e.target.value = "";
+                  }}
                 />
               </label>
               {completingFiringId && editingHadResult ? (
